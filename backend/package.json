@@ -14,13 +14,6 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "dev": "ts-node-dev ./src/index.ts --watch ./*/**"
   },
-  "keywords": [
-    "express",
-    "typescript",
-    "prisma",
-    "postgresql",
-    "template"
-  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
