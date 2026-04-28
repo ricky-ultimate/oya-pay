@@ -2,13 +2,12 @@
 
 import { useState, FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export default function RegisterPage() {
-  const router = useRouter();
+  const { register } = useAuth();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -28,15 +27,13 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      await api.register({
+      await register({
         name: form.name,
         email: form.email,
         password: form.password,
         ...(form.businessName && { businessName: form.businessName }),
         ...(form.phone && { phone: form.phone }),
       });
-      await api.login({ email: form.email, password: form.password });
-      router.push("/dashboard");
     } catch (err: unknown) {
       const message =
         err instanceof Error
