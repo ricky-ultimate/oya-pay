@@ -1,5 +1,7 @@
-import express from "express";
 import dotenv from "dotenv";
+dotenv.config();
+
+import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
@@ -15,7 +17,18 @@ import paymentRoutes from "./core/payments/payments.routes";
 import dashboardRoutes from "./core/dashboard/dashboard.routes";
 import webhookRoutes from "./core/webhooks/webhooks.routes";
 
-dotenv.config();
+const requiredEnv: (keyof typeof ENV)[] = [
+  "JWT_ACCESS_SECRET",
+  "JWT_REFRESH_SECRET",
+  "DATABASE_URL",
+];
+
+for (const key of requiredEnv) {
+  if (!ENV[key]) {
+    console.error(`Missing required environment variable: ${key}`);
+    process.exit(1);
+  }
+}
 
 const app = express();
 
