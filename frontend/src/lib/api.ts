@@ -277,12 +277,14 @@ class ApiClient {
     return this.refreshPromise;
   }
 
-  async register(data: RegisterInput): Promise<User> {
-    const response = await this.client.post<ApiResponse<User>>(
+  async register(data: RegisterInput): Promise<AuthResponse> {
+    const response = await this.client.post<ApiResponse<AuthResponse>>(
       "/api/auth/register",
       data,
     );
-    return response.data.data!;
+    const result = response.data.data!;
+    this.setTokens(result.accessToken, result.refreshToken);
+    return result;
   }
 
   async login(data: LoginInput): Promise<AuthResponse> {

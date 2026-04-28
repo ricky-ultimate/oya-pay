@@ -149,10 +149,7 @@ export default function DashboardPage() {
                   tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
-                  formatter={(value: any) => [
-                    formatNaira(Number(value)),
-                    "Revenue",
-                  ]}
+                  formatter={(value) => [formatNaira(Number(value)), "Revenue"]}
                   contentStyle={{
                     fontSize: 12,
                     borderRadius: 8,

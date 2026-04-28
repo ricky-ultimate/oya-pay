@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, Client, CreateInvoiceInput } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -20,13 +20,14 @@ function formatNaira(amount: number): string {
   return `₦${amount.toLocaleString("en-NG")}`;
 }
 
-export default function CreateInvoicePage() {
+function CreateInvoicePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [title, setTitle] = useState("");
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(searchParams.get("clientId") ?? "");
   const [dueDate, setDueDate] = useState("");
   const [tax, setTax] = useState("0");
   const [notes, setNotes] = useState("");
@@ -54,6 +55,7 @@ export default function CreateInvoicePage() {
     mutationFn: (data: CreateInvoiceInput) => api.createInvoice(data),
     onSuccess: async (invoice) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       if (sendAfter) {
         await api.sendInvoice(invoice.id, ["EMAIL"]);
         toast("Invoice created and sent", "success");
@@ -79,12 +81,11 @@ export default function CreateInvoicePage() {
   const handleSubmit = (send: boolean) => {
     if (!validate()) return;
     setSendAfter(send);
-    const dueDateISO = new Date(dueDate).toISOString();
     createMutation.mutate({
       title,
       clientId,
-      dueDate: dueDateISO,
-      tax: parseFloat(tax) > 0 ? (subtotal * parseFloat(tax)) / 100 : 0,
+      dueDate: new Date(dueDate).toISOString(),
+      tax: parseFloat(tax) > 0 ? taxAmount : 0,
       notes: notes || undefined,
       items: items.map((i) => ({
         description: i.description,
@@ -107,7 +108,7 @@ export default function CreateInvoicePage() {
     );
   };
 
-  const minDate = new Date().toISOString().split("T")[0];
+  const minDate = new Date().toISOString().split("T")[0] as string;
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
@@ -210,7 +211,7 @@ export default function CreateInvoicePage() {
               {items.length > 1 && (
                 <button
                   onClick={() => removeItem(idx)}
-                  className="mt-0 h-11 w-9 flex items-center justify-center rounded-lg text-neutral-400 hover:text-error-600 hover:bg-error-50 flex-shrink-0 transition-colors"
+                  className="h-11 w-9 flex items-center justify-center rounded-lg text-neutral-400 hover:text-error-600 hover:bg-error-50 flex-shrink-0 transition-colors"
                 >
                   <svg
                     className="w-4 h-4"
@@ -272,7 +273,7 @@ export default function CreateInvoicePage() {
               <span className="tabular-nums">{formatNaira(taxAmount)}</span>
             </div>
           )}
-          <div className="flex justify-between font-semibold text-neutral-900 text-base border-t border-neutral-200 border-t-2 pt-2 mt-1">
+          <div className="flex justify-between font-semibold text-neutral-900 text-base border-t-2 border-neutral-200 pt-2 mt-1">
             <span>Total</span>
             <span className="tabular-nums">{formatNaira(total)}</span>
           </div>
@@ -297,5 +298,13 @@ export default function CreateInvoicePage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function CreateInvoicePage() {
+  return (
+    <Suspense>
+      <CreateInvoicePageInner />
+    </Suspense>
   );
 }
