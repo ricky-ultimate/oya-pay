@@ -23,6 +23,7 @@ import {
   FollowUpTemplate,
 } from "../../generated/prisma/client";
 import { ENV } from "../../constants/env";
+import type { TemplateData } from "../../services/followup.templates";
 
 export const createInvoice = async (
   userId: string,
@@ -50,7 +51,7 @@ export const createInvoice = async (
       tax: input.tax,
       subtotal,
       total,
-      notes: input.notes,
+      notes: input.notes ?? null,
       items: {
         create: input.items.map((item) => ({
           description: item.description,
@@ -101,50 +102,59 @@ export const updateInvoice = async (
   if (invoice.status !== InvoiceStatus.DRAFT)
     throw new Error("Only draft invoices can be edited");
 
-  const { items, ...rest } = input;
+  const { items, dueDate, notes, tax, title, clientId, currency } = input;
 
-  type InvoiceUpdateData = typeof rest & {
+  type ScalarUpdateFields = {
+    title?: string;
+    clientId?: string;
+    currency?: string;
+    tax?: number;
+    notes?: string | null;
     dueDate?: Date;
     subtotal?: number;
     total?: number;
-    items?: {
-      create: {
-        description: string;
-        quantity: number;
-        unitPrice: number;
-        total: number;
-      }[];
-    };
   };
 
-  const updateData: InvoiceUpdateData = { ...rest };
+  const scalarData: ScalarUpdateFields = {};
 
-  if (rest.dueDate) updateData.dueDate = new Date(rest.dueDate);
+  if (title !== undefined) scalarData.title = title;
+  if (clientId !== undefined) scalarData.clientId = clientId;
+  if (currency !== undefined) scalarData.currency = currency;
+  if (tax !== undefined) scalarData.tax = tax;
+  if (notes !== undefined) scalarData.notes = notes ?? null;
+  if (dueDate !== undefined) scalarData.dueDate = new Date(dueDate);
 
-  if (items) {
+  if (items !== undefined) {
     const subtotal = items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
       0,
     );
-    const tax = typeof rest.tax === "number" ? rest.tax : Number(invoice.tax);
-    updateData.subtotal = subtotal;
-    updateData.total = subtotal + tax;
+    const effectiveTax = typeof tax === "number" ? tax : Number(invoice.tax);
+    scalarData.subtotal = subtotal;
+    scalarData.total = subtotal + effectiveTax;
 
     await prisma.invoiceItem.deleteMany({ where: { invoiceId } });
 
-    updateData.items = {
-      create: items.map((item) => ({
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: item.quantity * item.unitPrice,
-      })),
-    };
+    return prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        ...scalarData,
+        items: {
+          create: items.map((item) => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.quantity * item.unitPrice,
+          })),
+        },
+      },
+      include: { items: true, client: true },
+    });
   }
 
   return prisma.invoice.update({
     where: { id: invoiceId },
-    data: updateData,
+    data: scalarData,
     include: { items: true, client: true },
   });
 };
@@ -159,6 +169,38 @@ export const deleteInvoice = async (userId: string, invoiceId: string) => {
 
   await cancelFollowUpsForInvoice(invoiceId);
   return prisma.invoice.delete({ where: { id: invoiceId } });
+};
+
+const buildTemplateData = (
+  invoice: {
+    invoiceNumber: string;
+    total: unknown;
+    currency: string;
+    dueDate: Date;
+    paystackRef: string | null;
+    client: { name: string; email: string; phone: string | null };
+    user: { name: string; businessName: string | null };
+  },
+  paystackRef: string | null,
+): TemplateData => {
+  const base: TemplateData = {
+    clientName: invoice.client.name,
+    freelancerName: invoice.user.name,
+    invoiceNumber: invoice.invoiceNumber,
+    amount: Number(invoice.total).toLocaleString("en-NG"),
+    currency: invoice.currency,
+    dueDate: new Date(invoice.dueDate).toLocaleDateString("en-NG"),
+  };
+
+  if (invoice.user.businessName !== null) {
+    base.businessName = invoice.user.businessName;
+  }
+
+  if (paystackRef !== null) {
+    base.payLink = `https://paystack.com/pay/${paystackRef}`;
+  }
+
+  return base;
 };
 
 export const sendInvoice = async (
@@ -200,19 +242,7 @@ export const sendInvoice = async (
   }
 
   const pdf = await generateInvoicePDF({ ...invoice, paystackRef });
-
-  const templateData = {
-    clientName: invoice.client.name,
-    freelancerName: invoice.user.name,
-    businessName: invoice.user.businessName ?? undefined,
-    invoiceNumber: invoice.invoiceNumber,
-    amount: Number(invoice.total).toLocaleString("en-NG"),
-    currency: invoice.currency,
-    dueDate: new Date(invoice.dueDate).toLocaleDateString("en-NG"),
-    payLink: paystackRef
-      ? `https://paystack.com/pay/${paystackRef}`
-      : undefined,
-  };
+  const templateData = buildTemplateData(invoice, paystackRef);
 
   const results: Record<string, boolean> = {};
 
