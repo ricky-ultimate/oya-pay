@@ -1,19 +1,20 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import type { StringValue } from "ms";
 import prisma from "../../config/db.config";
 import { ENV } from "../../constants/env";
 import { RegisterInput, LoginInput } from "./auth.schema";
 
 const generateAccessToken = (userId: string): string =>
   jwt.sign({ userId }, ENV.JWT_ACCESS_SECRET, {
-    expiresIn: ENV.JWT_ACCESS_EXPIRES_IN as string,
+    expiresIn: ENV.JWT_ACCESS_EXPIRES_IN as StringValue,
   });
 
 const generateAndStoreRefreshToken = async (
   userId: string,
 ): Promise<string> => {
   const token = jwt.sign({ userId }, ENV.JWT_REFRESH_SECRET, {
-    expiresIn: ENV.JWT_REFRESH_EXPIRES_IN as string,
+    expiresIn: ENV.JWT_REFRESH_EXPIRES_IN as StringValue,
   });
 
   const expiresAt = new Date();
@@ -37,8 +38,8 @@ export const registerUser = async (input: RegisterInput) => {
       name: input.name,
       email: input.email,
       password: hashed,
-      businessName: input.businessName,
-      phone: input.phone,
+      businessName: input.businessName ?? null,
+      phone: input.phone ?? null,
     },
     select: {
       id: true,
