@@ -10,6 +10,7 @@ import {
   getFollowUpEmailTemplate,
   getFollowUpWhatsAppTemplate,
 } from "./followup.templates";
+import type { TemplateData } from "./followup.templates";
 import logger from "../utils/logger.utils";
 
 export const scheduleFollowUpsForInvoice = async (
@@ -87,6 +88,35 @@ export const markOverdueInvoices = async (): Promise<void> => {
   }
 };
 
+const buildTemplateData = (invoice: {
+  invoiceNumber: string;
+  total: unknown;
+  currency: string;
+  dueDate: Date;
+  paystackRef: string | null;
+  client: { name: string };
+  user: { name: string; businessName: string | null };
+}): TemplateData => {
+  const data: TemplateData = {
+    clientName: invoice.client.name,
+    freelancerName: invoice.user.name,
+    invoiceNumber: invoice.invoiceNumber,
+    amount: Number(invoice.total).toLocaleString("en-NG"),
+    currency: invoice.currency,
+    dueDate: new Date(invoice.dueDate).toLocaleDateString("en-NG"),
+  };
+
+  if (invoice.user.businessName !== null) {
+    data.businessName = invoice.user.businessName;
+  }
+
+  if (invoice.paystackRef !== null) {
+    data.payLink = `https://paystack.com/pay/${invoice.paystackRef}`;
+  }
+
+  return data;
+};
+
 export const processDueFollowUps = async (): Promise<void> => {
   const now = new Date();
 
@@ -111,18 +141,7 @@ export const processDueFollowUps = async (): Promise<void> => {
       continue;
     }
 
-    const templateData = {
-      clientName: invoice.client.name,
-      freelancerName: invoice.user.name,
-      businessName: invoice.user.businessName ?? undefined,
-      invoiceNumber: invoice.invoiceNumber,
-      amount: Number(invoice.total).toLocaleString("en-NG"),
-      currency: invoice.currency,
-      dueDate: new Date(invoice.dueDate).toLocaleDateString("en-NG"),
-      payLink: invoice.paystackRef
-        ? `https://paystack.com/pay/${invoice.paystackRef}`
-        : undefined,
-    };
+    const templateData = buildTemplateData(invoice);
 
     let success = false;
     let message = "";
