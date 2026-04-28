@@ -12,10 +12,12 @@ import { AuthRequest } from "../../middleware/auth.middleware";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await registerUser(req.body);
-    sendSuccess(res, 201, "Account created successfully", user);
+    const result = await registerUser(req.body);
+    sendSuccess(res, 201, "Account created successfully", result);
   } catch (error: unknown) {
-    sendError(res, 400, (error as Error).message);
+    const message = (error as Error).message;
+    const status = message === "Email already registered" ? 409 : 500;
+    sendError(res, status, message);
   }
 };
 
