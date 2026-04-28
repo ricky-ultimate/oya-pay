@@ -1,5 +1,5 @@
 export const ENV = {
-  PORT: process.env["PORT"] ?? 5001,
+  PORT: Number(process.env["PORT"] ?? 5001),
   NODE_ENV: process.env["NODE_ENV"] ?? "development",
   DATABASE_URL: process.env["DATABASE_URL"] ?? "",
   CLIENT_URL: process.env["CLIENT_URL"] ?? "http://localhost:3000",
@@ -16,4 +16,4 @@ export const ENV = {
   ULTRAMSG_INSTANCE_ID: process.env["ULTRAMSG_INSTANCE_ID"] ?? "",
   ULTRAMSG_TOKEN: process.env["ULTRAMSG_TOKEN"] ?? "",
   PAYSTACK_SECRET_KEY: process.env["PAYSTACK_SECRET_KEY"] ?? "",
-};
+} as const;
