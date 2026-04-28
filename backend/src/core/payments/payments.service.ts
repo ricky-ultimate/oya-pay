@@ -52,9 +52,9 @@ export const logPayment = async (userId: string, input: LogPaymentInput) => {
     data: {
       invoiceId: input.invoiceId,
       amount: input.amount,
-      method: input.method,
-      reference: input.reference,
-      note: input.note,
+      method: input.method ?? null,
+      reference: input.reference ?? null,
+      note: input.note ?? null,
       paidAt: input.paidAt ? new Date(input.paidAt) : new Date(),
     },
   });
