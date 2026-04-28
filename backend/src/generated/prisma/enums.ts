@@ -9,7 +9,42 @@
 * 🟢 You can import this file directly.
 */
 
+export const InvoiceStatus = {
+  DRAFT: 'DRAFT',
+  PENDING: 'PENDING',
+  PARTIAL: 'PARTIAL',
+  PAID: 'PAID',
+  OVERDUE: 'OVERDUE',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus]
 
 
-// This file is empty because there are no enums in the schema.
-export {}
+export const FollowUpChannel = {
+  EMAIL: 'EMAIL',
+  WHATSAPP: 'WHATSAPP'
+} as const
+
+export type FollowUpChannel = (typeof FollowUpChannel)[keyof typeof FollowUpChannel]
+
+
+export const FollowUpStatus = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type FollowUpStatus = (typeof FollowUpStatus)[keyof typeof FollowUpStatus]
+
+
+export const FollowUpTemplate = {
+  INVOICE_SENT: 'INVOICE_SENT',
+  PRE_DUE_REMINDER: 'PRE_DUE_REMINDER',
+  FIRST_OVERDUE: 'FIRST_OVERDUE',
+  SECOND_OVERDUE: 'SECOND_OVERDUE',
+  FINAL_NOTICE: 'FINAL_NOTICE'
+} as const
+
+export type FollowUpTemplate = (typeof FollowUpTemplate)[keyof typeof FollowUpTemplate]
