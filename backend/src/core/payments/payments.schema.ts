@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const logPaymentSchema = z.object({
-  invoiceId: z.string().cuid(),
+  invoiceId: z.string().min(1),
   amount: z.number().positive(),
   method: z.string().optional(),
   reference: z.string().optional(),
