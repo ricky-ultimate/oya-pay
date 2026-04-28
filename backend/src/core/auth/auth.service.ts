@@ -5,14 +5,17 @@ import prisma from "../../config/db.config";
 import { ENV } from "../../constants/env";
 import { RegisterInput, LoginInput, UpdateProfileInput } from "./auth.schema";
 
-const generateAccessToken = (userId: string): string =>
-  jwt.sign({ userId }, ENV.JWT_ACCESS_SECRET, {
+const generateAccessToken = (userId: string): string => {
+  if (!ENV.JWT_ACCESS_SECRET) throw new Error("JWT_ACCESS_SECRET is not set");
+  return jwt.sign({ userId }, ENV.JWT_ACCESS_SECRET, {
     expiresIn: ENV.JWT_ACCESS_EXPIRES_IN as StringValue,
   });
+};
 
 const generateAndStoreRefreshToken = async (
   userId: string,
 ): Promise<string> => {
+  if (!ENV.JWT_REFRESH_SECRET) throw new Error("JWT_REFRESH_SECRET is not set");
   const token = jwt.sign({ userId }, ENV.JWT_REFRESH_SECRET, {
     expiresIn: ENV.JWT_REFRESH_EXPIRES_IN as StringValue,
   });
@@ -33,7 +36,7 @@ export const registerUser = async (input: RegisterInput) => {
 
   const hashed = await bcrypt.hash(input.password, 12);
 
-  return prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       name: input.name,
       email: input.email,
@@ -47,9 +50,24 @@ export const registerUser = async (input: RegisterInput) => {
       email: true,
       businessName: true,
       phone: true,
+      logoUrl: true,
       createdAt: true,
     },
   });
+
+  const accessToken = generateAccessToken(user.id);
+  const refreshToken = await generateAndStoreRefreshToken(user.id);
+
+  return {
+    accessToken,
+    refreshToken,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      businessName: user.businessName,
+    },
+  };
 };
 
 export const loginUser = async (input: LoginInput) => {
