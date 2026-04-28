@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, Client, CreateInvoiceInput } from "@/lib/api";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 
 interface LineItem {
@@ -34,35 +35,47 @@ function CreateInvoicePageInner() {
   const [items, setItems] = useState<LineItem[]>([
     { description: "", quantity: "1", unitPrice: "" },
   ]);
-  const [sendAfter, setSendAfter] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [sendModal, setSendModal] = useState(false);
+  const [sendChannels, setSendChannels] = useState<("EMAIL" | "WHATSAPP")[]>([
+    "EMAIL",
+  ]);
+  const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["clients"],
     queryFn: () => api.getClients(),
   });
 
-  const subtotal = items.reduce((sum, item) => {
-    const qty = parseFloat(item.quantity) || 0;
-    const price = parseFloat(item.unitPrice) || 0;
-    return sum + qty * price;
-  }, 0);
+  const selectedClient = clients.find((c) => c.id === clientId) ?? null;
 
+  const subtotal = items.reduce((sum, item) => {
+    return (
+      sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)
+    );
+  }, 0);
   const taxAmount = (subtotal * (parseFloat(tax) || 0)) / 100;
   const total = subtotal + taxAmount;
 
   const createMutation = useMutation({
     mutationFn: (data: CreateInvoiceInput) => api.createInvoice(data),
-    onSuccess: async (invoice) => {
+    onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      if (sendAfter) {
-        await api.sendInvoice(invoice.id, ["EMAIL"]);
-        toast("Invoice created and sent", "success");
-      } else {
-        toast("Invoice saved as draft", "success");
-      }
+      toast("Invoice saved as draft", "success");
       router.push(`/invoices/${invoice.id}`);
+    },
+    onError: () => toast("Failed to create invoice", "error"),
+  });
+
+  const createAndSendMutation = useMutation({
+    mutationFn: (data: CreateInvoiceInput) => api.createInvoice(data),
+    onSuccess: (invoice) => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setPendingInvoiceId(invoice.id);
+      setSendModal(true);
     },
     onError: () => toast("Failed to create invoice", "error"),
   });
@@ -78,21 +91,58 @@ function CreateInvoicePageInner() {
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = (send: boolean) => {
+  const buildPayload = (): CreateInvoiceInput => ({
+    title,
+    clientId,
+    dueDate: new Date(dueDate).toISOString(),
+    tax: parseFloat(tax) > 0 ? taxAmount : 0,
+    notes: notes || undefined,
+    items: items.map((i) => ({
+      description: i.description,
+      quantity: parseFloat(i.quantity) || 1,
+      unitPrice: parseFloat(i.unitPrice) || 0,
+    })),
+  });
+
+  const handleSaveDraft = () => {
     if (!validate()) return;
-    setSendAfter(send);
-    createMutation.mutate({
-      title,
-      clientId,
-      dueDate: new Date(dueDate).toISOString(),
-      tax: parseFloat(tax) > 0 ? taxAmount : 0,
-      notes: notes || undefined,
-      items: items.map((i) => ({
-        description: i.description,
-        quantity: parseFloat(i.quantity) || 1,
-        unitPrice: parseFloat(i.unitPrice) || 0,
-      })),
-    });
+    createMutation.mutate(buildPayload());
+  };
+
+  const handleSendNow = () => {
+    if (!validate()) return;
+    createAndSendMutation.mutate(buildPayload());
+  };
+
+  const handleConfirmSend = async () => {
+    if (!pendingInvoiceId || sendChannels.length === 0) return;
+    setIsSending(true);
+    try {
+      await api.sendInvoice(pendingInvoiceId, sendChannels);
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({
+        queryKey: ["invoice", pendingInvoiceId],
+      });
+      toast("Invoice sent successfully", "success");
+      router.push(`/invoices/${pendingInvoiceId}`);
+    } catch {
+      toast(
+        "Invoice saved but failed to send. You can retry from the invoice page.",
+        "error",
+      );
+      router.push(`/invoices/${pendingInvoiceId}`);
+    } finally {
+      setIsSending(false);
+      setSendModal(false);
+    }
+  };
+
+  const toggleChannel = (channel: "EMAIL" | "WHATSAPP") => {
+    setSendChannels((prev) =>
+      prev.includes(channel)
+        ? prev.filter((c) => c !== channel)
+        : [...prev, channel],
+    );
   };
 
   const addItem = () =>
@@ -102,11 +152,10 @@ function CreateInvoicePageInner() {
     ]);
   const removeItem = (idx: number) =>
     setItems((prev) => prev.filter((_, i) => i !== idx));
-  const updateItem = (idx: number, field: keyof LineItem, value: string) => {
+  const updateItem = (idx: number, field: keyof LineItem, value: string) =>
     setItems((prev) =>
       prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)),
     );
-  };
 
   const minDate = new Date().toISOString().split("T")[0] as string;
 
@@ -283,20 +332,100 @@ function CreateInvoicePageInner() {
       <div className="flex gap-3 pb-4">
         <Button
           variant="secondary"
-          onClick={() => handleSubmit(false)}
-          loading={createMutation.isPending && !sendAfter}
+          onClick={handleSaveDraft}
+          loading={createMutation.isPending}
           className="flex-1"
         >
           Save as Draft
         </Button>
         <Button
-          onClick={() => handleSubmit(true)}
-          loading={createMutation.isPending && sendAfter}
+          onClick={handleSendNow}
+          loading={createAndSendMutation.isPending}
           className="flex-1"
         >
           Send Now
         </Button>
       </div>
+
+      <Modal
+        open={sendModal}
+        onClose={() => {
+          if (!isSending) {
+            setSendModal(false);
+            if (pendingInvoiceId) router.push(`/invoices/${pendingInvoiceId}`);
+          }
+        }}
+        title="Send Invoice"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSendModal(false);
+                if (pendingInvoiceId)
+                  router.push(`/invoices/${pendingInvoiceId}`);
+              }}
+              disabled={isSending}
+            >
+              Save as Draft
+            </Button>
+            <Button
+              onClick={handleConfirmSend}
+              loading={isSending}
+              disabled={sendChannels.length === 0}
+            >
+              Send
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-neutral-600">
+            Your invoice has been saved. Choose how to send it to{" "}
+            <span className="font-medium text-neutral-900">
+              {selectedClient?.name ?? "the client"}
+            </span>
+            .
+          </p>
+          <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
+            <input
+              type="checkbox"
+              checked={sendChannels.includes("EMAIL")}
+              onChange={() => toggleChannel("EMAIL")}
+              className="w-4 h-4 text-primary-500"
+            />
+            <div>
+              <p className="text-sm font-medium text-neutral-900">Email</p>
+              {selectedClient?.email && (
+                <p className="text-xs text-neutral-500">
+                  {selectedClient.email}
+                </p>
+              )}
+            </div>
+          </label>
+          {selectedClient?.phone && (
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
+              <input
+                type="checkbox"
+                checked={sendChannels.includes("WHATSAPP")}
+                onChange={() => toggleChannel("WHATSAPP")}
+                className="w-4 h-4 text-primary-500"
+              />
+              <div>
+                <p className="text-sm font-medium text-neutral-900">WhatsApp</p>
+                <p className="text-xs text-neutral-500">
+                  {selectedClient.phone}
+                </p>
+              </div>
+            </label>
+          )}
+          {!selectedClient?.phone && (
+            <p className="text-xs text-neutral-400 px-1">
+              Add a phone number to this client to enable WhatsApp delivery.
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
