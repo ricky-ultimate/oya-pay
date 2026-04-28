@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import type { StringValue } from "ms";
 import prisma from "../../config/db.config";
 import { ENV } from "../../constants/env";
-import { RegisterInput, LoginInput } from "./auth.schema";
+import { RegisterInput, LoginInput, UpdateProfileInput } from "./auth.schema";
 
 const generateAccessToken = (userId: string): string =>
   jwt.sign({ userId }, ENV.JWT_ACCESS_SECRET, {
@@ -112,3 +112,29 @@ export const getMe = async (userId: string) =>
       createdAt: true,
     },
   });
+
+export const updateProfile = async (
+  userId: string,
+  input: UpdateProfileInput,
+) => {
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.businessName !== undefined && {
+        businessName: input.businessName ?? null,
+      }),
+      ...(input.phone !== undefined && { phone: input.phone ?? null }),
+      ...(input.logoUrl !== undefined && { logoUrl: input.logoUrl ?? null }),
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      businessName: true,
+      phone: true,
+      logoUrl: true,
+      updatedAt: true,
+    },
+  });
+};

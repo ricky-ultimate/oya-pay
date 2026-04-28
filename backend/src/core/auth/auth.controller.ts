@@ -5,6 +5,7 @@ import {
   refreshTokens,
   logoutUser,
   getMe,
+  updateProfile,
 } from "./auth.service";
 import { sendSuccess, sendError } from "../../utils/response.utils";
 import { AuthRequest } from "../../middleware/auth.middleware";
@@ -61,5 +62,17 @@ export const me = async (req: AuthRequest, res: Response): Promise<void> => {
     sendSuccess(res, 200, "User fetched", user);
   } catch (error: unknown) {
     sendError(res, 500, (error as Error).message);
+  }
+};
+
+export const patchProfile = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = await updateProfile(req.userId!, req.body);
+    sendSuccess(res, 200, "Profile updated", user);
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
   }
 };
