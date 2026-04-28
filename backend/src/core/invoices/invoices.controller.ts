@@ -40,7 +40,8 @@ export const getOne = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const invoice = await getInvoiceById(req.userId!, req.params["id"]!);
+    const id = req.params["id"] as string;
+    const invoice = await getInvoiceById(req.userId!, id);
     if (!invoice) {
       sendError(res, 404, "Invoice not found");
       return;
@@ -56,11 +57,8 @@ export const update = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const invoice = await updateInvoice(
-      req.userId!,
-      req.params["id"]!,
-      req.body,
-    );
+    const id = req.params["id"] as string;
+    const invoice = await updateInvoice(req.userId!, id, req.body);
     sendSuccess(res, 200, "Invoice updated", invoice);
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
@@ -72,7 +70,8 @@ export const remove = async (
   res: Response,
 ): Promise<void> => {
   try {
-    await deleteInvoice(req.userId!, req.params["id"]!);
+    const id = req.params["id"] as string;
+    await deleteInvoice(req.userId!, id);
     sendSuccess(res, 200, "Invoice deleted");
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
@@ -81,7 +80,8 @@ export const remove = async (
 
 export const send = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await sendInvoice(req.userId!, req.params["id"]!, req.body);
+    const id = req.params["id"] as string;
+    const result = await sendInvoice(req.userId!, id, req.body);
     sendSuccess(res, 200, "Invoice sent", result);
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
@@ -93,7 +93,8 @@ export const downloadPDF = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const pdf = await getInvoicePDF(req.userId!, req.params["id"]!);
+    const id = req.params["id"] as string;
+    const pdf = await getInvoicePDF(req.userId!, id);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="invoice.pdf"`);
     res.send(pdf);
@@ -107,6 +108,7 @@ export const updateStatus = async (
   res: Response,
 ): Promise<void> => {
   try {
+    const id = req.params["id"] as string;
     const { status } = req.body as { status?: string };
     const validStatuses = Object.values(InvoiceStatus) as string[];
 
@@ -117,7 +119,7 @@ export const updateStatus = async (
 
     const invoice = await updateInvoiceStatus(
       req.userId!,
-      req.params["id"]!,
+      id,
       status as InvoiceStatus,
     );
     sendSuccess(res, 200, "Invoice status updated", invoice);

@@ -21,10 +21,8 @@ export const listByInvoice = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const payments = await getPaymentsByInvoice(
-      req.userId!,
-      req.params["invoiceId"]!,
-    );
+    const invoiceId = req.params["invoiceId"] as string;
+    const payments = await getPaymentsByInvoice(req.userId!, invoiceId);
     sendSuccess(res, 200, "Payments fetched", payments);
   } catch (error: unknown) {
     sendError(res, 500, (error as Error).message);
@@ -36,7 +34,8 @@ export const remove = async (
   res: Response,
 ): Promise<void> => {
   try {
-    await deletePayment(req.userId!, req.params["id"]!);
+    const id = req.params["id"] as string;
+    await deletePayment(req.userId!, id);
     sendSuccess(res, 200, "Payment deleted");
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);

@@ -35,7 +35,8 @@ export const getOne = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const client = await getClientById(req.userId!, req.params["id"]!);
+    const id = req.params["id"] as string;
+    const client = await getClientById(req.userId!, id);
     if (!client) {
       sendError(res, 404, "Client not found");
       return;
@@ -51,7 +52,8 @@ export const update = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const client = await updateClient(req.userId!, req.params["id"]!, req.body);
+    const id = req.params["id"] as string;
+    const client = await updateClient(req.userId!, id, req.body);
     sendSuccess(res, 200, "Client updated", client);
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
@@ -63,7 +65,8 @@ export const remove = async (
   res: Response,
 ): Promise<void> => {
   try {
-    await deleteClient(req.userId!, req.params["id"]!);
+    const id = req.params["id"] as string;
+    await deleteClient(req.userId!, id);
     sendSuccess(res, 200, "Client deleted");
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
