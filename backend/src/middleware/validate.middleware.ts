@@ -1,19 +1,19 @@
 import { Request, Response, NextFunction } from "express";
-import { ZodSchema } from "zod";
+import { ZodType } from "zod";
 import { sendError } from "../utils/response.utils";
 
 export const validate =
-  (schema: ZodSchema) =>
+  <T extends ZodType>(schema: T) =>
   (req: Request, res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req.body);
 
     if (!result.success) {
-      sendError(
-        res,
-        400,
-        "Validation error",
-        result.error.flatten().fieldErrors,
-      );
+      const errors = result.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      }));
+
+      sendError(res, 400, "Validation error", errors);
       return;
     }
 
