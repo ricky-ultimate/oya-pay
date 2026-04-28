@@ -334,3 +334,52 @@ export const updateInvoiceStatus = async (
     },
   });
 };
+
+export const getOrRegeneratePaymentLink = async (
+  userId: string,
+  invoiceId: string,
+  forceRegenerate: boolean = false,
+): Promise<{ authorizationUrl: string; reference: string }> => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, userId },
+    include: { client: true },
+  });
+
+  if (!invoice) throw new Error("Invoice not found");
+
+  if (
+    invoice.status === InvoiceStatus.PAID ||
+    invoice.status === InvoiceStatus.CANCELLED
+  ) {
+    throw new Error(
+      "Cannot generate a payment link for a paid or cancelled invoice",
+    );
+  }
+
+  if (invoice.paystackRef && !forceRegenerate) {
+    return {
+      authorizationUrl: `https://paystack.com/pay/${invoice.paystackRef}`,
+      reference: invoice.paystackRef,
+    };
+  }
+
+  const payment = await initializePayment({
+    email: invoice.client.email,
+    amount: Number(invoice.total),
+    reference: `OYAPAY-${invoice.invoiceNumber}-${Date.now()}`,
+    metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
+    callbackUrl: `${ENV.APP_URL}/api/webhooks/paystack`,
+  });
+
+  if (!payment) throw new Error("Failed to generate payment link");
+
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: { paystackRef: payment.reference },
+  });
+
+  return {
+    authorizationUrl: payment.authorizationUrl,
+    reference: payment.reference,
+  };
+};

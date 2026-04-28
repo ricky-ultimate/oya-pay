@@ -9,6 +9,7 @@ import {
   sendInvoice,
   getInvoicePDF,
   updateInvoiceStatus,
+  getOrRegeneratePaymentLink,
 } from "./invoices.service";
 import { sendSuccess, sendError } from "../../utils/response.utils";
 import { InvoiceStatus } from "../../generated/prisma/client";
@@ -123,6 +124,24 @@ export const updateStatus = async (
       status as InvoiceStatus,
     );
     sendSuccess(res, 200, "Invoice status updated", invoice);
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const paymentLink = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    const forceRegenerate = req.query["regenerate"] === "true";
+    const result = await getOrRegeneratePaymentLink(
+      req.userId!,
+      id,
+      forceRegenerate,
+    );
+    sendSuccess(res, 200, "Payment link fetched", result);
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
   }

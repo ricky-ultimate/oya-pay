@@ -8,6 +8,7 @@ import {
   send,
   downloadPDF,
   updateStatus,
+  paymentLink,
 } from "./invoices.controller";
 import { validate } from "../../middleware/validate.middleware";
 import { authenticate } from "../../middleware/auth.middleware";
@@ -29,5 +30,6 @@ router.delete("/:id", remove);
 router.post("/:id/send", validate(sendInvoiceSchema), send);
 router.get("/:id/pdf", downloadPDF);
 router.patch("/:id/status", updateStatus);
+router.get("/:id/payment-link", paymentLink);
 
 export default router;
