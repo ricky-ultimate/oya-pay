@@ -8,7 +8,7 @@ const invoiceItemSchema = z.object({
 
 export const createInvoiceSchema = z.object({
   title: z.string().min(1),
-  clientId: z.string().cuid(),
+  clientId: z.string().min(1),
   dueDate: z.string().datetime(),
   currency: z.string().default("NGN"),
   tax: z.number().min(0).default(0),
