@@ -1,0 +1,127 @@
+import { Response } from "express";
+import { AuthRequest } from "../../middleware/auth.middleware";
+import {
+  createInvoice,
+  getInvoices,
+  getInvoiceById,
+  updateInvoice,
+  deleteInvoice,
+  sendInvoice,
+  getInvoicePDF,
+  updateInvoiceStatus,
+} from "./invoices.service";
+import { sendSuccess, sendError } from "../../utils/response.utils";
+import { InvoiceStatus } from "../../generated/prisma/client";
+
+export const create = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const invoice = await createInvoice(req.userId!, req.body);
+    sendSuccess(res, 201, "Invoice created", invoice);
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const list = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const status = req.query["status"] as string | undefined;
+    const invoices = await getInvoices(req.userId!, status);
+    sendSuccess(res, 200, "Invoices fetched", invoices);
+  } catch (error: unknown) {
+    sendError(res, 500, (error as Error).message);
+  }
+};
+
+export const getOne = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const invoice = await getInvoiceById(req.userId!, req.params["id"]!);
+    if (!invoice) {
+      sendError(res, 404, "Invoice not found");
+      return;
+    }
+    sendSuccess(res, 200, "Invoice fetched", invoice);
+  } catch (error: unknown) {
+    sendError(res, 500, (error as Error).message);
+  }
+};
+
+export const update = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const invoice = await updateInvoice(
+      req.userId!,
+      req.params["id"]!,
+      req.body,
+    );
+    sendSuccess(res, 200, "Invoice updated", invoice);
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const remove = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    await deleteInvoice(req.userId!, req.params["id"]!);
+    sendSuccess(res, 200, "Invoice deleted");
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const send = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await sendInvoice(req.userId!, req.params["id"]!, req.body);
+    sendSuccess(res, 200, "Invoice sent", result);
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const downloadPDF = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const pdf = await getInvoicePDF(req.userId!, req.params["id"]!);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="invoice.pdf"`);
+    res.send(pdf);
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const updateStatus = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { status } = req.body as { status?: string };
+    const validStatuses = Object.values(InvoiceStatus) as string[];
+
+    if (!status || !validStatuses.includes(status)) {
+      sendError(res, 400, "Invalid status");
+      return;
+    }
+
+    const invoice = await updateInvoiceStatus(
+      req.userId!,
+      req.params["id"]!,
+      status as InvoiceStatus,
+    );
+    sendSuccess(res, 200, "Invoice status updated", invoice);
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};

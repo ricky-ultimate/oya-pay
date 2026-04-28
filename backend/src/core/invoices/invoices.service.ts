@@ -1,0 +1,306 @@
+import prisma from "../../config/db.config";
+import {
+  CreateInvoiceInput,
+  UpdateInvoiceInput,
+  SendInvoiceInput,
+} from "./invoices.schema";
+import { generateInvoiceNumber } from "../../utils/invoice-number.utils";
+import { generateInvoicePDF } from "../../services/pdf.service";
+import { sendEmail } from "../../services/email.service";
+import { sendWhatsAppMessage } from "../../services/whatsapp.service";
+import {
+  scheduleFollowUpsForInvoice,
+  cancelFollowUpsForInvoice,
+} from "../../services/followup.service";
+import { initializePayment } from "../../services/paystack.service";
+import {
+  getFollowUpEmailTemplate,
+  getFollowUpWhatsAppTemplate,
+} from "../../services/followup.templates";
+import {
+  InvoiceStatus,
+  FollowUpChannel,
+  FollowUpTemplate,
+} from "../../generated/prisma/client";
+import { ENV } from "../../constants/env";
+
+export const createInvoice = async (
+  userId: string,
+  input: CreateInvoiceInput,
+) => {
+  const client = await prisma.client.findFirst({
+    where: { id: input.clientId, userId },
+  });
+  if (!client) throw new Error("Client not found");
+
+  const subtotal = input.items.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0,
+  );
+  const total = subtotal + input.tax;
+
+  return prisma.invoice.create({
+    data: {
+      invoiceNumber: generateInvoiceNumber(),
+      title: input.title,
+      userId,
+      clientId: input.clientId,
+      dueDate: new Date(input.dueDate),
+      currency: input.currency,
+      tax: input.tax,
+      subtotal,
+      total,
+      notes: input.notes,
+      items: {
+        create: input.items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.quantity * item.unitPrice,
+        })),
+      },
+    },
+    include: { items: true, client: true },
+  });
+};
+
+export const getInvoices = async (userId: string, status?: string) =>
+  prisma.invoice.findMany({
+    where: {
+      userId,
+      ...(status ? { status: status as InvoiceStatus } : {}),
+    },
+    include: {
+      client: { select: { id: true, name: true, email: true } },
+      _count: { select: { payments: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+export const getInvoiceById = async (userId: string, invoiceId: string) =>
+  prisma.invoice.findFirst({
+    where: { id: invoiceId, userId },
+    include: {
+      items: true,
+      client: true,
+      user: true,
+      payments: { orderBy: { paidAt: "desc" } },
+      followUpLogs: { orderBy: { sentAt: "desc" } },
+    },
+  });
+
+export const updateInvoice = async (
+  userId: string,
+  invoiceId: string,
+  input: UpdateInvoiceInput,
+) => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, userId },
+  });
+  if (!invoice) throw new Error("Invoice not found");
+  if (invoice.status !== InvoiceStatus.DRAFT)
+    throw new Error("Only draft invoices can be edited");
+
+  const { items, ...rest } = input;
+
+  type InvoiceUpdateData = typeof rest & {
+    dueDate?: Date;
+    subtotal?: number;
+    total?: number;
+    items?: {
+      create: {
+        description: string;
+        quantity: number;
+        unitPrice: number;
+        total: number;
+      }[];
+    };
+  };
+
+  const updateData: InvoiceUpdateData = { ...rest };
+
+  if (rest.dueDate) updateData.dueDate = new Date(rest.dueDate);
+
+  if (items) {
+    const subtotal = items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0,
+    );
+    const tax = typeof rest.tax === "number" ? rest.tax : Number(invoice.tax);
+    updateData.subtotal = subtotal;
+    updateData.total = subtotal + tax;
+
+    await prisma.invoiceItem.deleteMany({ where: { invoiceId } });
+
+    updateData.items = {
+      create: items.map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: item.quantity * item.unitPrice,
+      })),
+    };
+  }
+
+  return prisma.invoice.update({
+    where: { id: invoiceId },
+    data: updateData,
+    include: { items: true, client: true },
+  });
+};
+
+export const deleteInvoice = async (userId: string, invoiceId: string) => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, userId },
+  });
+  if (!invoice) throw new Error("Invoice not found");
+  if (invoice.status !== InvoiceStatus.DRAFT)
+    throw new Error("Only draft invoices can be deleted");
+
+  await cancelFollowUpsForInvoice(invoiceId);
+  return prisma.invoice.delete({ where: { id: invoiceId } });
+};
+
+export const sendInvoice = async (
+  userId: string,
+  invoiceId: string,
+  input: SendInvoiceInput,
+) => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, userId },
+    include: { client: true, user: true, items: true },
+  });
+
+  if (!invoice) throw new Error("Invoice not found");
+  if (
+    invoice.status === InvoiceStatus.PAID ||
+    invoice.status === InvoiceStatus.CANCELLED
+  ) {
+    throw new Error("Cannot send a paid or cancelled invoice");
+  }
+
+  let paystackRef = invoice.paystackRef;
+
+  if (!paystackRef) {
+    const payment = await initializePayment({
+      email: invoice.client.email,
+      amount: Number(invoice.total),
+      reference: `OYAPAY-${invoice.invoiceNumber}-${Date.now()}`,
+      metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
+      callbackUrl: `${ENV.APP_URL}/api/webhooks/paystack`,
+    });
+
+    if (payment) {
+      paystackRef = payment.reference;
+      await prisma.invoice.update({
+        where: { id: invoiceId },
+        data: { paystackRef },
+      });
+    }
+  }
+
+  const pdf = await generateInvoicePDF({ ...invoice, paystackRef });
+
+  const templateData = {
+    clientName: invoice.client.name,
+    freelancerName: invoice.user.name,
+    businessName: invoice.user.businessName ?? undefined,
+    invoiceNumber: invoice.invoiceNumber,
+    amount: Number(invoice.total).toLocaleString("en-NG"),
+    currency: invoice.currency,
+    dueDate: new Date(invoice.dueDate).toLocaleDateString("en-NG"),
+    payLink: paystackRef
+      ? `https://paystack.com/pay/${paystackRef}`
+      : undefined,
+  };
+
+  const results: Record<string, boolean> = {};
+
+  if (input.channels.includes("EMAIL")) {
+    const tpl = getFollowUpEmailTemplate(
+      FollowUpTemplate.INVOICE_SENT,
+      templateData,
+    );
+    results["email"] = await sendEmail({
+      to: invoice.client.email,
+      subject: tpl.subject,
+      html: tpl.html,
+      attachments: [{ filename: `${invoice.invoiceNumber}.pdf`, content: pdf }],
+    });
+
+    await prisma.followUpLog.create({
+      data: {
+        invoiceId,
+        channel: FollowUpChannel.EMAIL,
+        message: tpl.subject,
+        status: results["email"] ? "SENT" : "FAILED",
+      },
+    });
+  }
+
+  if (input.channels.includes("WHATSAPP") && invoice.client.phone) {
+    const message = getFollowUpWhatsAppTemplate(
+      FollowUpTemplate.INVOICE_SENT,
+      templateData,
+    );
+    results["whatsapp"] = await sendWhatsAppMessage(
+      invoice.client.phone,
+      message,
+    );
+
+    await prisma.followUpLog.create({
+      data: {
+        invoiceId,
+        channel: FollowUpChannel.WHATSAPP,
+        message,
+        status: results["whatsapp"] ? "SENT" : "FAILED",
+      },
+    });
+  }
+
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: { status: InvoiceStatus.PENDING, sentAt: new Date() },
+  });
+
+  await scheduleFollowUpsForInvoice(invoiceId);
+
+  return { results, invoiceNumber: invoice.invoiceNumber };
+};
+
+export const getInvoicePDF = async (
+  userId: string,
+  invoiceId: string,
+): Promise<Buffer> => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, userId },
+    include: { items: true, client: true, user: true },
+  });
+
+  if (!invoice) throw new Error("Invoice not found");
+
+  return generateInvoicePDF(invoice);
+};
+
+export const updateInvoiceStatus = async (
+  userId: string,
+  invoiceId: string,
+  status: InvoiceStatus,
+) => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, userId },
+  });
+  if (!invoice) throw new Error("Invoice not found");
+
+  if (status === InvoiceStatus.PAID || status === InvoiceStatus.CANCELLED) {
+    await cancelFollowUpsForInvoice(invoiceId);
+  }
+
+  return prisma.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      status,
+      ...(status === InvoiceStatus.PAID ? { paidAt: new Date() } : {}),
+    },
+  });
+};
