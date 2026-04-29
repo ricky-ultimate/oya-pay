@@ -9,6 +9,8 @@ import {
   downloadPDF,
   updateStatus,
   paymentLink,
+  followUpActivity,
+  cancelFollowUpSchedule,
 } from "./invoices.controller";
 import { validate } from "../../middleware/validate.middleware";
 import { authenticate } from "../../middleware/auth.middleware";
@@ -31,5 +33,7 @@ router.post("/:id/send", validate(sendInvoiceSchema), send);
 router.get("/:id/pdf", downloadPDF);
 router.patch("/:id/status", updateStatus);
 router.get("/:id/payment-link", paymentLink);
+router.get("/:id/followups", followUpActivity);
+router.delete("/:id/followups/:scheduleId", cancelFollowUpSchedule);
 
 export default router;

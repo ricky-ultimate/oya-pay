@@ -353,6 +353,11 @@ export default function InvoiceDetailPage() {
         <Button variant="ghost" onClick={downloadPDF} size="md">
           Download PDF
         </Button>
+        <Link href={`/invoices/${id}/followups`}>
+          <Button variant="ghost" size="md">
+            Follow-ups
+          </Button>
+        </Link>
         {!["DRAFT", "CANCELLED"].includes(invoice.status) && (
           <Button variant="ghost" onClick={copyPaymentLink} size="md">
             Copy Link

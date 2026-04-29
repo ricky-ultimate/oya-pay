@@ -383,3 +383,43 @@ export const getOrRegeneratePaymentLink = async (
     reference: payment.reference,
   };
 };
+
+export const getFollowUpActivity = async (
+  userId: string,
+  invoiceId: string,
+) => {
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, userId },
+  });
+  if (!invoice) throw new Error("Invoice not found");
+
+  const [schedules, logs] = await Promise.all([
+    prisma.followUpSchedule.findMany({
+      where: { invoiceId },
+      orderBy: { scheduledAt: "asc" },
+    }),
+    prisma.followUpLog.findMany({
+      where: { invoiceId },
+      orderBy: { sentAt: "desc" },
+    }),
+  ]);
+
+  return { schedules, logs };
+};
+
+export const cancelFollowUp = async (userId: string, scheduleId: string) => {
+  const schedule = await prisma.followUpSchedule.findFirst({
+    where: { id: scheduleId },
+    include: { invoice: { select: { userId: true } } },
+  });
+
+  if (!schedule) throw new Error("Follow-up not found");
+  if (schedule.invoice.userId !== userId) throw new Error("Unauthorized");
+  if (schedule.status !== "PENDING")
+    throw new Error("Only pending follow-ups can be cancelled");
+
+  return prisma.followUpSchedule.update({
+    where: { id: scheduleId },
+    data: { status: "CANCELLED" },
+  });
+};

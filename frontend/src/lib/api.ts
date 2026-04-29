@@ -184,6 +184,27 @@ export interface PaymentLinkResponse {
   reference: string;
 }
 
+export interface FollowUpSchedule {
+  id: string;
+  invoiceId: string;
+  channel: "EMAIL" | "WHATSAPP";
+  template:
+    | "INVOICE_SENT"
+    | "PRE_DUE_REMINDER"
+    | "FIRST_OVERDUE"
+    | "SECOND_OVERDUE"
+    | "FINAL_NOTICE";
+  scheduledAt: string;
+  sentAt: string | null;
+  status: "PENDING" | "SENT" | "FAILED" | "CANCELLED";
+  createdAt: string;
+}
+
+export interface FollowUpActivity {
+  schedules: FollowUpSchedule[];
+  logs: FollowUpLog[];
+}
+
 class ApiClient {
   private client: AxiosInstance;
   private refreshPromise: Promise<string> | null = null;
@@ -455,6 +476,19 @@ class ApiClient {
     const response =
       await this.client.get<ApiResponse<DashboardStats>>("/api/dashboard");
     return response.data.data!;
+  }
+
+  async getFollowUpActivity(invoiceId: string): Promise<FollowUpActivity> {
+    const response = await this.client.get<ApiResponse<FollowUpActivity>>(
+      `/api/invoices/${invoiceId}/followups`,
+    );
+    return response.data.data!;
+  }
+
+  async cancelFollowUp(invoiceId: string, scheduleId: string): Promise<void> {
+    await this.client.delete(
+      `/api/invoices/${invoiceId}/followups/${scheduleId}`,
+    );
   }
 }
 

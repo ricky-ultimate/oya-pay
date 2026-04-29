@@ -10,6 +10,8 @@ import {
   getInvoicePDF,
   updateInvoiceStatus,
   getOrRegeneratePaymentLink,
+  getFollowUpActivity,
+  cancelFollowUp,
 } from "./invoices.service";
 import { sendSuccess, sendError } from "../../utils/response.utils";
 import { InvoiceStatus } from "../../generated/prisma/client";
@@ -112,12 +114,10 @@ export const updateStatus = async (
     const id = req.params["id"] as string;
     const { status } = req.body as { status?: string };
     const validStatuses = Object.values(InvoiceStatus) as string[];
-
     if (!status || !validStatuses.includes(status)) {
       sendError(res, 400, "Invalid status");
       return;
     }
-
     const invoice = await updateInvoiceStatus(
       req.userId!,
       id,
@@ -142,6 +142,32 @@ export const paymentLink = async (
       forceRegenerate,
     );
     sendSuccess(res, 200, "Payment link fetched", result);
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const followUpActivity = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    const data = await getFollowUpActivity(req.userId!, id);
+    sendSuccess(res, 200, "Follow-up activity fetched", data);
+  } catch (error: unknown) {
+    sendError(res, 500, (error as Error).message);
+  }
+};
+
+export const cancelFollowUpSchedule = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const scheduleId = req.params["scheduleId"] as string;
+    await cancelFollowUp(req.userId!, scheduleId);
+    sendSuccess(res, 200, "Follow-up cancelled");
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
   }
