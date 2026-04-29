@@ -53,7 +53,7 @@ Thumbs.db
 *.sln
 *.sw?
 
-# /src/generated/prisma
-# /src/generated/
-# /prisma/generated/
-# *.prisma/client/
+**/src/generated/prisma
+/src/generated/
+/prisma/generated/
+*.prisma/client/
