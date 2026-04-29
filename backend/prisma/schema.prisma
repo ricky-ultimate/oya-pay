@@ -136,6 +136,7 @@ enum FollowUpStatus {
     SENT
     FAILED
     CANCELLED
+    PAUSED
 }
 
 enum FollowUpTemplate {
