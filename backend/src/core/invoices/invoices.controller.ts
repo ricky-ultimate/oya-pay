@@ -13,8 +13,24 @@ import {
   getFollowUpActivity,
   cancelFollowUp,
 } from "./invoices.service";
+import {
+  previewFollowUpMessage,
+  triggerScheduledFollowUp,
+  escalateFollowUp,
+  pauseFollowUpsForInvoice,
+  resumeFollowUpsForInvoice,
+} from "../../services/followup.service";
 import { sendSuccess, sendError } from "../../utils/response.utils";
-import { InvoiceStatus } from "../../generated/prisma/client";
+import {
+  InvoiceStatus,
+  FollowUpTemplate,
+  FollowUpChannel,
+} from "../../generated/prisma/client";
+import {
+  PreviewFollowUpInput,
+  TriggerFollowUpInput,
+  EscalateFollowUpInput,
+} from "./invoices.schema";
 
 export const create = async (
   req: AuthRequest,
@@ -168,6 +184,84 @@ export const cancelFollowUpSchedule = async (
     const scheduleId = req.params["scheduleId"] as string;
     await cancelFollowUp(req.userId!, scheduleId);
     sendSuccess(res, 200, "Follow-up cancelled");
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const previewFollowUp = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    const { template, channel } = req.body as PreviewFollowUpInput;
+    const preview = await previewFollowUpMessage(
+      req.userId!,
+      id,
+      template as FollowUpTemplate,
+    );
+    sendSuccess(res, 200, "Preview generated", { ...preview, channel });
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const triggerFollowUp = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const scheduleId = req.params["scheduleId"] as string;
+    const { note } = req.body as TriggerFollowUpInput;
+    await triggerScheduledFollowUp(req.userId!, scheduleId, note);
+    sendSuccess(res, 200, "Follow-up sent");
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const escalateNow = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    const { template, channel, note } = req.body as EscalateFollowUpInput;
+    await escalateFollowUp(
+      req.userId!,
+      id,
+      template as FollowUpTemplate,
+      channel as FollowUpChannel,
+      note,
+    );
+    sendSuccess(res, 200, "Follow-up sent");
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const pauseFollowUps = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    const count = await pauseFollowUpsForInvoice(req.userId!, id);
+    sendSuccess(res, 200, "Follow-ups paused", { count });
+  } catch (error: unknown) {
+    sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const resumeFollowUps = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    const count = await resumeFollowUpsForInvoice(req.userId!, id);
+    sendSuccess(res, 200, "Follow-ups resumed", { count });
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
   }
