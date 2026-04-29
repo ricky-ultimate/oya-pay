@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { WhatsAppMockup } from "@/components/ui/whatsapp-mockup";
 import { useToast } from "@/components/ui/toast";
 
 type FollowUpTemplate =
@@ -29,6 +30,8 @@ interface EscalateModalProps {
   open: boolean;
   onClose: () => void;
   onSent: () => void;
+  initialChannel?: Channel;
+  initialTemplate?: FollowUpTemplate;
 }
 
 export function EscalateModal({
@@ -37,13 +40,26 @@ export function EscalateModal({
   open,
   onClose,
   onSent,
+  initialChannel,
+  initialTemplate,
 }: EscalateModalProps) {
-  const [template, setTemplate] = useState<FollowUpTemplate>("FIRST_OVERDUE");
-  const [channel, setChannel] = useState<Channel>("EMAIL");
+  const defaultChannel: Channel =
+    initialChannel ?? (hasPhone ? "WHATSAPP" : "EMAIL");
+  const [template, setTemplate] = useState<FollowUpTemplate>(
+    initialTemplate ?? "FIRST_OVERDUE",
+  );
+  const [channel, setChannel] = useState<Channel>(defaultChannel);
   const [note, setNote] = useState("");
-  const [activeTab, setActiveTab] = useState<"email" | "whatsapp">("email");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (open) {
+      setTemplate(initialTemplate ?? "FIRST_OVERDUE");
+      setChannel(initialChannel ?? (hasPhone ? "WHATSAPP" : "EMAIL"));
+      setNote("");
+    }
+  }, [open, initialChannel, initialTemplate, hasPhone]);
 
   const { data: preview, isLoading: previewLoading } = useQuery({
     queryKey: ["followup-preview", invoiceId, template, channel],
@@ -64,7 +80,6 @@ export function EscalateModal({
       queryClient.invalidateQueries({ queryKey: ["followups", invoiceId] });
       queryClient.invalidateQueries({ queryKey: ["invoice", invoiceId] });
       toast("Follow-up sent", "success");
-      setNote("");
       onSent();
     },
     onError: () => toast("Failed to send follow-up", "error"),
@@ -72,7 +87,6 @@ export function EscalateModal({
 
   const handleClose = () => {
     if (escalateMutation.isPending) return;
-    setNote("");
     onClose();
   };
 
@@ -118,73 +132,40 @@ export function EscalateModal({
             value={channel}
             onChange={(e) => setChannel(e.target.value as Channel)}
           >
-            <option value="EMAIL">Email</option>
             {hasPhone && <option value="WHATSAPP">WhatsApp</option>}
+            <option value="EMAIL">Email</option>
           </Select>
         </div>
 
-        <div className="border border-neutral-200 rounded-lg overflow-hidden">
-          <div className="flex gap-0 border-b border-neutral-200 bg-neutral-50">
-            <button
-              type="button"
-              onClick={() => setActiveTab("email")}
-              className={[
-                "px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors",
-                activeTab === "email"
-                  ? "border-primary-500 text-primary-600 bg-white"
-                  : "border-transparent text-neutral-500",
-              ].join(" ")}
-            >
-              Email preview
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("whatsapp")}
-              className={[
-                "px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors",
-                activeTab === "whatsapp"
-                  ? "border-primary-500 text-primary-600 bg-white"
-                  : "border-transparent text-neutral-500",
-              ].join(" ")}
-            >
-              WhatsApp preview
-            </button>
-          </div>
-
-          <div className="p-3 min-h-24">
-            {previewLoading ? (
-              <p className="text-xs text-neutral-400 text-center py-6">
-                Loading preview...
+        {channel === "WHATSAPP" ? (
+          <WhatsAppMockup
+            message={preview?.whatsapp ?? ""}
+            loading={previewLoading}
+          />
+        ) : (
+          <div className="border border-neutral-200 rounded-lg overflow-hidden">
+            <div className="bg-neutral-50 px-4 py-2 border-b border-neutral-200">
+              <p className="text-xs text-neutral-500">
+                Subject:{" "}
+                <span className="font-medium text-neutral-900">
+                  {previewLoading
+                    ? "Loading..."
+                    : (preview?.email.subject ?? "")}
+                </span>
               </p>
-            ) : preview ? (
-              <>
-                {activeTab === "email" && (
-                  <div>
-                    <p className="text-xs text-neutral-500 mb-2">
-                      Subject:{" "}
-                      <span className="font-medium text-neutral-900">
-                        {preview.email.subject}
-                      </span>
-                    </p>
-                    <div
-                      className="text-sm leading-relaxed max-h-40 overflow-y-auto"
-                      dangerouslySetInnerHTML={{ __html: preview.email.html }}
-                    />
-                  </div>
-                )}
-                {activeTab === "whatsapp" && (
-                  <div className="flex justify-end">
-                    <div className="max-w-xs bg-green-100 rounded-lg rounded-tr-none px-3 py-2">
-                      <p className="text-sm text-neutral-900 whitespace-pre-wrap">
-                        {preview.whatsapp}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : null}
+            </div>
+            <div className="p-3 min-h-20">
+              {previewLoading ? (
+                <div className="h-16 animate-pulse bg-neutral-100 rounded" />
+              ) : preview ? (
+                <div
+                  className="text-sm leading-relaxed max-h-40 overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: preview.email.html }}
+                />
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-neutral-700">
@@ -193,11 +174,14 @@ export function EscalateModal({
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Appended to the message..."
+            placeholder="Appended to the message before sending..."
             rows={2}
             maxLength={500}
             className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
+          <p className="text-xs text-neutral-400 text-right">
+            {note.length}/500
+          </p>
         </div>
       </div>
     </Modal>
