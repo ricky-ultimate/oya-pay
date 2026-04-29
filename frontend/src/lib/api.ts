@@ -141,8 +141,9 @@ export interface CreateInvoiceInput {
   items: CreateInvoiceItemInput[];
 }
 
-export interface UpdateInvoiceInput
-  extends Partial<Omit<CreateInvoiceInput, "items">> {
+export interface UpdateInvoiceInput extends Partial<
+  Omit<CreateInvoiceInput, "items">
+> {
   items?: CreateInvoiceItemInput[];
 }
 
@@ -230,22 +231,64 @@ export interface FollowUpPreviewResponse {
 }
 
 export const DEFAULT_FOLLOWUP_STEPS: FollowUpStepConfig[] = [
-  { template: "PRE_DUE_REMINDER", offsetDays: -3, channels: ["EMAIL"], enabled: true },
-  { template: "FIRST_OVERDUE", offsetDays: 1, channels: ["EMAIL"], enabled: true },
-  { template: "SECOND_OVERDUE", offsetDays: 7, channels: ["EMAIL"], enabled: true },
-  { template: "FINAL_NOTICE", offsetDays: 14, channels: ["EMAIL"], enabled: true },
+  {
+    template: "PRE_DUE_REMINDER",
+    offsetDays: -3,
+    channels: ["EMAIL"],
+    enabled: true,
+  },
+  {
+    template: "FIRST_OVERDUE",
+    offsetDays: 1,
+    channels: ["EMAIL"],
+    enabled: true,
+  },
+  {
+    template: "SECOND_OVERDUE",
+    offsetDays: 7,
+    channels: ["EMAIL"],
+    enabled: true,
+  },
+  {
+    template: "FINAL_NOTICE",
+    offsetDays: 14,
+    channels: ["EMAIL"],
+    enabled: true,
+  },
 ];
 
-export const buildDefaultFollowUpSteps = (hasPhone: boolean): FollowUpStepConfig[] => {
+export const buildDefaultFollowUpSteps = (
+  hasPhone: boolean,
+): FollowUpStepConfig[] => {
   const channels: ("EMAIL" | "WHATSAPP")[] = hasPhone
     ? ["EMAIL", "WHATSAPP"]
     : ["EMAIL"];
 
   return [
-    { template: "PRE_DUE_REMINDER", offsetDays: -3, channels: [...channels], enabled: true },
-    { template: "FIRST_OVERDUE", offsetDays: 1, channels: [...channels], enabled: true },
-    { template: "SECOND_OVERDUE", offsetDays: 7, channels: [...channels], enabled: true },
-    { template: "FINAL_NOTICE", offsetDays: 14, channels: [...channels], enabled: true },
+    {
+      template: "PRE_DUE_REMINDER",
+      offsetDays: -3,
+      channels: [...channels],
+      enabled: true,
+    },
+    {
+      template: "FIRST_OVERDUE",
+      offsetDays: 1,
+      channels: [...channels],
+      enabled: true,
+    },
+    {
+      template: "SECOND_OVERDUE",
+      offsetDays: 7,
+      channels: [...channels],
+      enabled: true,
+    },
+    {
+      template: "FINAL_NOTICE",
+      offsetDays: 14,
+      channels: [...channels],
+      enabled: true,
+    },
   ];
 };
 
@@ -462,7 +505,7 @@ class ApiClient {
     channels: ("EMAIL" | "WHATSAPP")[],
     followUpConfig?: FollowUpStepConfig[],
   ): Promise<{ results: Record<string, boolean>; invoiceNumber: string }> {
-    const response = await this.client.post
+    const response = await this.client.post<
       ApiResponse<{ results: Record<string, boolean>; invoiceNumber: string }>
     >(`/api/invoices/${id}/send`, { channels, followUpConfig });
     return response.data.data!;
@@ -475,7 +518,10 @@ class ApiClient {
     return response.data;
   }
 
-  async updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<Invoice> {
+  async updateInvoiceStatus(
+    id: string,
+    status: InvoiceStatus,
+  ): Promise<Invoice> {
     const response = await this.client.patch<ApiResponse<Invoice>>(
       `/api/invoices/${id}/status`,
       { status },
@@ -532,10 +578,9 @@ class ApiClient {
     template: string,
     channel: string,
   ): Promise<FollowUpPreviewResponse> {
-    const response = await this.client.post<ApiResponse<FollowUpPreviewResponse>>(
-      `/api/invoices/${invoiceId}/followups/preview`,
-      { template, channel },
-    );
+    const response = await this.client.post<
+      ApiResponse<FollowUpPreviewResponse>
+    >(`/api/invoices/${invoiceId}/followups/preview`, { template, channel });
     return response.data.data!;
   }
 
