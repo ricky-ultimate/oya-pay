@@ -3,12 +3,19 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, Client, CreateInvoiceInput } from "@/lib/api";
+import {
+  api,
+  Client,
+  CreateInvoiceInput,
+  FollowUpStepConfig,
+  buildDefaultFollowUpSteps,
+} from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
 import { useToast } from "@/components/ui/toast";
 
 interface LineItem {
@@ -20,6 +27,28 @@ interface LineItem {
 function formatNaira(amount: number): string {
   return `₦${amount.toLocaleString("en-NG")}`;
 }
+
+function computeScheduledDate(dueDate: string, offsetDays: number): string {
+  const due = new Date(dueDate);
+  const d = new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000);
+  return d.toLocaleDateString("en-NG", { day: "numeric", month: "short" });
+}
+
+function isInPast(dueDate: string, offsetDays: number): boolean {
+  const due = new Date(dueDate);
+  return (
+    new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000) <= new Date()
+  );
+}
+
+const TEMPLATE_LABELS: Record<string, string> = {
+  PRE_DUE_REMINDER: "Pre-due Reminder",
+  FIRST_OVERDUE: "First Overdue Notice",
+  SECOND_OVERDUE: "Second Overdue Notice",
+  FINAL_NOTICE: "Final Notice",
+};
+
+type SendPhase = "configure" | "confirmed";
 
 function CreateInvoicePageInner() {
   const router = useRouter();
@@ -37,11 +66,18 @@ function CreateInvoicePageInner() {
   ]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sendModal, setSendModal] = useState(false);
+  const [sendPhase, setSendPhase] = useState<SendPhase>("configure");
   const [sendChannels, setSendChannels] = useState<("EMAIL" | "WHATSAPP")[]>([
     "EMAIL",
   ]);
+  const [followUpSteps, setFollowUpSteps] = useState<FollowUpStepConfig[]>(
+    buildDefaultFollowUpSteps(false),
+  );
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [confirmedSteps, setConfirmedSteps] = useState<FollowUpStepConfig[]>(
+    [],
+  );
 
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["clients"],
@@ -50,13 +86,23 @@ function CreateInvoicePageInner() {
 
   const selectedClient = clients.find((c) => c.id === clientId) ?? null;
 
-  const subtotal = items.reduce((sum, item) => {
-    return (
-      sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)
-    );
-  }, 0);
+  const subtotal = items.reduce(
+    (sum, item) =>
+      sum +
+      (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0),
+    0,
+  );
   const taxAmount = (subtotal * (parseFloat(tax) || 0)) / 100;
   const total = subtotal + taxAmount;
+
+  const handleClientChange = (newClientId: string) => {
+    setClientId(newClientId);
+    const client = clients.find((c) => c.id === newClientId);
+    setFollowUpSteps(buildDefaultFollowUpSteps(!!client?.phone));
+    if (client?.phone && !sendChannels.includes("WHATSAPP")) {
+      setSendChannels(["EMAIL", "WHATSAPP"]);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: CreateInvoiceInput) => api.createInvoice(data),
@@ -75,6 +121,7 @@ function CreateInvoicePageInner() {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setPendingInvoiceId(invoice.id);
+      setSendPhase("configure");
       setSendModal(true);
     },
     onError: () => toast("Failed to create invoice", "error"),
@@ -118,13 +165,13 @@ function CreateInvoicePageInner() {
     if (!pendingInvoiceId || sendChannels.length === 0) return;
     setIsSending(true);
     try {
-      await api.sendInvoice(pendingInvoiceId, sendChannels);
+      await api.sendInvoice(pendingInvoiceId, sendChannels, followUpSteps);
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({
         queryKey: ["invoice", pendingInvoiceId],
       });
-      toast("Invoice sent successfully", "success");
-      router.push(`/invoices/${pendingInvoiceId}`);
+      setConfirmedSteps(followUpSteps);
+      setSendPhase("confirmed");
     } catch {
       toast(
         "Invoice saved but failed to send. You can retry from the invoice page.",
@@ -133,25 +180,34 @@ function CreateInvoicePageInner() {
       router.push(`/invoices/${pendingInvoiceId}`);
     } finally {
       setIsSending(false);
-      setSendModal(false);
     }
   };
 
-  const toggleChannel = (channel: "EMAIL" | "WHATSAPP") => {
+  const handleModalClose = () => {
+    if (isSending) return;
+    setSendModal(false);
+    if (pendingInvoiceId) router.push(`/invoices/${pendingInvoiceId}`);
+  };
+
+  const toggleChannel = (ch: "EMAIL" | "WHATSAPP") => {
     setSendChannels((prev) =>
-      prev.includes(channel)
-        ? prev.filter((c) => c !== channel)
-        : [...prev, channel],
+      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch],
     );
   };
+
+  const activeConfirmedSteps = confirmedSteps.filter(
+    (s) => s.enabled && !isInPast(dueDate, s.offsetDays),
+  );
 
   const addItem = () =>
     setItems((prev) => [
       ...prev,
       { description: "", quantity: "1", unitPrice: "" },
     ]);
+
   const removeItem = (idx: number) =>
     setItems((prev) => prev.filter((_, i) => i !== idx));
+
   const updateItem = (idx: number, field: keyof LineItem, value: string) =>
     setItems((prev) =>
       prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)),
@@ -197,7 +253,7 @@ function CreateInvoicePageInner() {
         <Select
           label="Client"
           value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
+          onChange={(e) => handleClientChange(e.target.value)}
           error={errors["clientId"]}
         >
           <option value="">Select a client</option>
@@ -349,82 +405,154 @@ function CreateInvoicePageInner() {
 
       <Modal
         open={sendModal}
-        onClose={() => {
-          if (!isSending) {
-            setSendModal(false);
-            if (pendingInvoiceId) router.push(`/invoices/${pendingInvoiceId}`);
-          }
-        }}
-        title="Send Invoice"
+        onClose={handleModalClose}
+        title={
+          sendPhase === "confirmed" ? "Collection agent active" : "Send Invoice"
+        }
         footer={
-          <>
+          sendPhase === "configure" ? (
+            <>
+              <Button
+                variant="secondary"
+                onClick={handleModalClose}
+                disabled={isSending}
+              >
+                Save as Draft
+              </Button>
+              <Button
+                onClick={handleConfirmSend}
+                loading={isSending}
+                disabled={sendChannels.length === 0}
+              >
+                Send Invoice
+              </Button>
+            </>
+          ) : (
             <Button
-              variant="secondary"
-              onClick={() => {
-                setSendModal(false);
-                if (pendingInvoiceId)
-                  router.push(`/invoices/${pendingInvoiceId}`);
-              }}
-              disabled={isSending}
+              onClick={() =>
+                pendingInvoiceId && router.push(`/invoices/${pendingInvoiceId}`)
+              }
+              className="w-full"
             >
-              Save as Draft
+              View Invoice
             </Button>
-            <Button
-              onClick={handleConfirmSend}
-              loading={isSending}
-              disabled={sendChannels.length === 0}
-            >
-              Send
-            </Button>
-          </>
+          )
         }
       >
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-neutral-600">
-            Your invoice has been saved. Choose how to send it to{" "}
-            <span className="font-medium text-neutral-900">
-              {selectedClient?.name ?? "the client"}
-            </span>
-            .
-          </p>
-          <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
-            <input
-              type="checkbox"
-              checked={sendChannels.includes("EMAIL")}
-              onChange={() => toggleChannel("EMAIL")}
-              className="w-4 h-4 text-primary-500"
-            />
-            <div>
-              <p className="text-sm font-medium text-neutral-900">Email</p>
-              {selectedClient?.email && (
-                <p className="text-xs text-neutral-500">
-                  {selectedClient.email}
+        {sendPhase === "configure" ? (
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-neutral-700">
+                Deliver invoice to{" "}
+                <span className="text-neutral-900">
+                  {selectedClient?.name ?? "client"}
+                </span>{" "}
+                via:
+              </p>
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
+                <input
+                  type="checkbox"
+                  checked={sendChannels.includes("EMAIL")}
+                  onChange={() => toggleChannel("EMAIL")}
+                  className="w-4 h-4 text-primary-500"
+                />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Email</p>
+                  {selectedClient?.email && (
+                    <p className="text-xs text-neutral-500">
+                      {selectedClient.email}
+                    </p>
+                  )}
+                </div>
+              </label>
+              {selectedClient?.phone ? (
+                <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
+                  <input
+                    type="checkbox"
+                    checked={sendChannels.includes("WHATSAPP")}
+                    onChange={() => toggleChannel("WHATSAPP")}
+                    className="w-4 h-4 text-primary-500"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">
+                      WhatsApp
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {selectedClient.phone}
+                    </p>
+                  </div>
+                </label>
+              ) : (
+                <p className="text-xs text-neutral-400 px-1">
+                  Add a phone number to this client to enable WhatsApp delivery.
                 </p>
               )}
             </div>
-          </label>
-          {selectedClient?.phone && (
-            <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
-              <input
-                type="checkbox"
-                checked={sendChannels.includes("WHATSAPP")}
-                onChange={() => toggleChannel("WHATSAPP")}
-                className="w-4 h-4 text-primary-500"
+
+            <div className="border-t border-neutral-100 pt-4">
+              <p className="text-sm font-medium text-neutral-700 mb-3">
+                Automatic follow-up sequence
+              </p>
+              <FollowUpTimeline
+                dueDate={dueDate}
+                hasPhone={!!selectedClient?.phone}
+                steps={followUpSteps}
+                onChange={setFollowUpSteps}
               />
-              <div>
-                <p className="text-sm font-medium text-neutral-900">WhatsApp</p>
-                <p className="text-xs text-neutral-500">
-                  {selectedClient.phone}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="w-12 h-12 rounded-full bg-success-50 flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-success-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-base font-semibold text-neutral-900">
+                Invoice sent
+              </p>
+              <p className="text-sm text-neutral-500 mt-0.5">
+                Your collection agent is now active
+              </p>
+            </div>
+            {activeConfirmedSteps.length > 0 ? (
+              <div className="w-full bg-neutral-50 rounded-lg p-3 flex flex-col gap-2">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                  Scheduled follow-ups
                 </p>
+                {activeConfirmedSteps.map((step) => (
+                  <div
+                    key={step.template}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="text-neutral-700">
+                      {TEMPLATE_LABELS[step.template]}
+                    </span>
+                    <span className="text-xs font-medium text-primary-600 tabular-nums">
+                      {computeScheduledDate(dueDate, step.offsetDays)}
+                    </span>
+                  </div>
+                ))}
               </div>
-            </label>
-          )}
-          {!selectedClient?.phone && (
-            <p className="text-xs text-neutral-400 px-1">
-              Add a phone number to this client to enable WhatsApp delivery.
-            </p>
-          )}
-        </div>
+            ) : (
+              <p className="text-sm text-neutral-500 text-center">
+                No follow-ups were scheduled — all steps were in the past or
+                disabled.
+              </p>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );
