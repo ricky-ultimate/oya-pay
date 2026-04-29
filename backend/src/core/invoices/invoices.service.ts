@@ -11,6 +11,7 @@ import { sendWhatsAppMessage } from "../../services/whatsapp.service";
 import {
   scheduleFollowUpsForInvoice,
   cancelFollowUpsForInvoice,
+  type FollowUpStep,
 } from "../../services/followup.service";
 import { initializePayment } from "../../services/paystack.service";
 import {
@@ -21,6 +22,7 @@ import {
   InvoiceStatus,
   FollowUpChannel,
   FollowUpTemplate,
+  FollowUpStatus,
 } from "../../generated/prisma/client";
 import { ENV } from "../../constants/env";
 import type { TemplateData } from "../../services/followup.templates";
@@ -74,6 +76,10 @@ export const getInvoices = async (userId: string, status?: string) =>
     include: {
       client: { select: { id: true, name: true, email: true } },
       _count: { select: { payments: true } },
+      followUpSchedules: {
+        where: { status: FollowUpStatus.PENDING },
+        select: { id: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -87,6 +93,12 @@ export const getInvoiceById = async (userId: string, invoiceId: string) =>
       user: true,
       payments: { orderBy: { paidAt: "desc" } },
       followUpLogs: { orderBy: { sentAt: "desc" } },
+      followUpSchedules: {
+        where: {
+          status: { in: [FollowUpStatus.PENDING, FollowUpStatus.PAUSED] },
+        },
+        select: { id: true, status: true },
+      },
     },
   });
 
@@ -243,7 +255,6 @@ export const sendInvoice = async (
 
   const pdf = await generateInvoicePDF({ ...invoice, paystackRef });
   const templateData = buildTemplateData(invoice, paystackRef);
-
   const results: Record<string, boolean> = {};
 
   if (input.channels.includes("EMAIL")) {
@@ -293,7 +304,16 @@ export const sendInvoice = async (
     data: { status: InvoiceStatus.PENDING, sentAt: new Date() },
   });
 
-  await scheduleFollowUpsForInvoice(invoiceId);
+  await cancelFollowUpsForInvoice(invoiceId);
+
+  const steps: FollowUpStep[] | undefined = input.followUpConfig?.map((s) => ({
+    template: s.template as FollowUpTemplate,
+    offsetDays: s.offsetDays,
+    channels: s.channels.map((c) => c as FollowUpChannel),
+    enabled: s.enabled,
+  }));
+
+  await scheduleFollowUpsForInvoice(invoiceId, steps);
 
   return { results, invoiceNumber: invoice.invoiceNumber };
 };
@@ -415,8 +435,8 @@ export const cancelFollowUp = async (userId: string, scheduleId: string) => {
 
   if (!schedule) throw new Error("Follow-up not found");
   if (schedule.invoice.userId !== userId) throw new Error("Unauthorized");
-  if (schedule.status !== "PENDING")
-    throw new Error("Only pending follow-ups can be cancelled");
+  if (schedule.status !== "PENDING" && schedule.status !== "PAUSED")
+    throw new Error("Only pending or paused follow-ups can be cancelled");
 
   return prisma.followUpSchedule.update({
     where: { id: scheduleId },

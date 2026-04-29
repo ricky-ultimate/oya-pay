@@ -3,12 +3,14 @@
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useState } from "react";
 import { api, Invoice, FollowUpActivity, FollowUpSchedule } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EscalateModal } from "@/components/invoices/escalate-modal";
+import { MessagePreviewButton } from "@/components/invoices/message-preview";
 import { useToast } from "@/components/ui/toast";
-import { useState } from "react";
 
 const templateLabels: Record<string, string> = {
   INVOICE_SENT: "Invoice Sent",
@@ -18,18 +20,14 @@ const templateLabels: Record<string, string> = {
   FINAL_NOTICE: "Final Notice",
 };
 
-const channelLabels: Record<string, string> = {
-  EMAIL: "Email",
-  WHATSAPP: "WhatsApp",
-};
-
 const statusConfig: Record<string, { label: string; className: string }> = {
   PENDING: { label: "Scheduled", className: "bg-warning-50 text-warning-700" },
+  PAUSED: { label: "Paused", className: "bg-neutral-100 text-neutral-500" },
   SENT: { label: "Sent", className: "bg-success-50 text-success-700" },
   FAILED: { label: "Failed", className: "bg-error-50 text-error-700" },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-neutral-100 text-neutral-500",
+    className: "bg-neutral-100 text-neutral-400",
   },
 };
 
@@ -91,6 +89,7 @@ export default function FollowUpsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [escalateModal, setEscalateModal] = useState(false);
 
   const { data: invoice } = useQuery<Invoice>({
     queryKey: ["invoice", id],
@@ -107,17 +106,55 @@ export default function FollowUpsPage() {
     mutationFn: (scheduleId: string) => api.cancelFollowUp(id, scheduleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["followups", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
       toast("Follow-up cancelled", "success");
       setCancelTarget(null);
     },
     onError: () => toast("Failed to cancel follow-up", "error"),
   });
 
+  const pauseMutation = useMutation({
+    mutationFn: () => api.pauseFollowUps(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["followups", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      toast(
+        `${data.count} follow-up${data.count !== 1 ? "s" : ""} paused`,
+        "success",
+      );
+    },
+    onError: () => toast("Failed to pause follow-ups", "error"),
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: () => api.resumeFollowUps(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["followups", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      toast(
+        `${data.count} follow-up${data.count !== 1 ? "s" : ""} resumed`,
+        "success",
+      );
+    },
+    onError: () => toast("Failed to resume follow-ups", "error"),
+  });
+
   const schedules = activity?.schedules ?? [];
   const logs = activity?.logs ?? [];
 
   const pending = schedules.filter((s) => s.status === "PENDING");
-  const completed = schedules.filter((s) => s.status !== "PENDING");
+  const paused = schedules.filter((s) => s.status === "PAUSED");
+  const completed = schedules.filter(
+    (s) => s.status !== "PENDING" && s.status !== "PAUSED",
+  );
+
+  const hasActiveSequence = pending.length > 0 || paused.length > 0;
+  const isSequencePaused = paused.length > 0 && pending.length === 0;
+  const hasPhone = !!invoice?.client?.phone;
+  const canEscalate =
+    invoice &&
+    !["PAID", "CANCELLED"].includes(invoice.status) &&
+    invoice.sentAt;
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
@@ -155,6 +192,65 @@ export default function FollowUpsPage() {
         </Link>
       </div>
 
+      {hasActiveSequence && (
+        <div className="bg-white rounded-xl border border-neutral-200 p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div
+              className={[
+                "w-2 h-2 rounded-full",
+                isSequencePaused ? "bg-neutral-400" : "bg-success-500",
+              ].join(" ")}
+            />
+            <p className="text-sm font-medium text-neutral-900">
+              {isSequencePaused
+                ? "Sequence paused"
+                : `${pending.length} follow-up${pending.length !== 1 ? "s" : ""} pending`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {canEscalate && (
+              <button
+                onClick={() => setEscalateModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning-50 text-warning-700 text-xs font-medium hover:bg-warning-100 transition-colors"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                Escalate now
+              </button>
+            )}
+            {!isSequencePaused ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => pauseMutation.mutate()}
+                loading={pauseMutation.isPending}
+              >
+                Pause sequence
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => resumeMutation.mutate()}
+                loading={resumeMutation.isPending}
+              >
+                Resume sequence
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-32 rounded-xl" />
@@ -162,43 +258,66 @@ export default function FollowUpsPage() {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-xl border border-neutral-200">
-            <div className="px-5 py-3.5 border-b border-neutral-200 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">
-                Scheduled
-              </h2>
-              <span className="text-xs text-neutral-400">
-                {pending.length} pending
-              </span>
+          {(pending.length > 0 || paused.length > 0) && (
+            <div className="bg-white rounded-xl border border-neutral-200">
+              <div className="px-5 py-3.5 border-b border-neutral-200 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-neutral-900">
+                  Scheduled
+                </h2>
+                <span className="text-xs text-neutral-400">
+                  {pending.length} pending
+                  {paused.length > 0 ? ` · ${paused.length} paused` : ""}
+                </span>
+              </div>
+              <div className="divide-y divide-neutral-100">
+                {[...pending, ...paused].map((schedule) => (
+                  <ScheduleRow
+                    key={schedule.id}
+                    invoiceId={id}
+                    schedule={schedule}
+                    onCancel={() => setCancelTarget(schedule.id)}
+                    onSent={() => {
+                      queryClient.invalidateQueries({
+                        queryKey: ["followups", id],
+                      });
+                      queryClient.invalidateQueries({
+                        queryKey: ["invoice", id],
+                      });
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-            {pending.length === 0 ? (
+          )}
+
+          {pending.length === 0 && paused.length === 0 && (
+            <div className="bg-white rounded-xl border border-neutral-200">
+              <div className="px-5 py-3.5 border-b border-neutral-200">
+                <h2 className="text-sm font-semibold text-neutral-900">
+                  Scheduled
+                </h2>
+              </div>
               <div className="px-5 py-8 text-center text-sm text-neutral-500">
                 No pending follow-ups. Send the invoice to schedule automatic
                 reminders.
               </div>
-            ) : (
-              <div className="divide-y divide-neutral-100">
-                {pending.map((schedule) => (
-                  <ScheduleRow
-                    key={schedule.id}
-                    schedule={schedule}
-                    onCancel={() => setCancelTarget(schedule.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {completed.length > 0 && (
             <div className="bg-white rounded-xl border border-neutral-200">
               <div className="px-5 py-3.5 border-b border-neutral-200">
                 <h2 className="text-sm font-semibold text-neutral-900">
-                  Completed Schedules
+                  Completed
                 </h2>
               </div>
               <div className="divide-y divide-neutral-100">
                 {completed.map((schedule) => (
-                  <ScheduleRow key={schedule.id} schedule={schedule} />
+                  <ScheduleRow
+                    key={schedule.id}
+                    invoiceId={id}
+                    schedule={schedule}
+                  />
                 ))}
               </div>
             </div>
@@ -249,6 +368,30 @@ export default function FollowUpsPage() {
               </div>
             )}
           </div>
+
+          {canEscalate && !hasActiveSequence && (
+            <div className="flex justify-center">
+              <button
+                onClick={() => setEscalateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-warning-50 text-warning-700 text-sm font-medium hover:bg-warning-100 transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                Send a follow-up now
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -261,17 +404,38 @@ export default function FollowUpsPage() {
         confirmLabel="Cancel Follow-up"
         loading={cancelMutation.isPending}
       />
+
+      <EscalateModal
+        invoiceId={id}
+        hasPhone={hasPhone}
+        open={escalateModal}
+        onClose={() => setEscalateModal(false)}
+        onSent={() => {
+          setEscalateModal(false);
+          queryClient.invalidateQueries({ queryKey: ["followups", id] });
+          queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+        }}
+      />
     </div>
   );
 }
 
 interface ScheduleRowProps {
+  invoiceId: string;
   schedule: FollowUpSchedule;
   onCancel?: () => void;
+  onSent?: () => void;
 }
 
-function ScheduleRow({ schedule, onCancel }: ScheduleRowProps) {
+function ScheduleRow({
+  invoiceId,
+  schedule,
+  onCancel,
+  onSent,
+}: ScheduleRowProps) {
   const isPast = new Date(schedule.scheduledAt) < new Date();
+  const isActionable =
+    schedule.status === "PENDING" || schedule.status === "PAUSED";
 
   return (
     <div className="px-5 py-3.5 flex items-start justify-between gap-4">
@@ -287,19 +451,30 @@ function ScheduleRow({ schedule, onCancel }: ScheduleRowProps) {
           <span className="text-xs text-neutral-500">
             {schedule.status === "SENT" && schedule.sentAt
               ? `Sent ${formatDateTime(schedule.sentAt)}`
-              : isPast && schedule.status === "PENDING"
-                ? `Due ${formatDateTime(schedule.scheduledAt)}`
+              : isPast && isActionable
+                ? `Overdue — was ${formatDateTime(schedule.scheduledAt)}`
                 : `Scheduled for ${formatDateTime(schedule.scheduledAt)}`}
           </span>
         </div>
       </div>
-      {schedule.status === "PENDING" && onCancel && (
-        <button
-          onClick={onCancel}
-          className="flex-shrink-0 text-xs text-error-600 font-medium hover:underline"
-        >
-          Cancel
-        </button>
+      {isActionable && (
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <MessagePreviewButton
+            invoiceId={invoiceId}
+            scheduleId={schedule.id}
+            template={schedule.template}
+            channel={schedule.channel}
+            onSent={onSent}
+          />
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="flex-shrink-0 text-xs text-error-600 font-medium hover:underline px-1"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

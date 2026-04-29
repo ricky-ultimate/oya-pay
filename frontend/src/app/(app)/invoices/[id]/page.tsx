@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { api, Invoice, InvoiceStatus } from "@/lib/api";
+import {
+  api,
+  Invoice,
+  InvoiceStatus,
+  FollowUpStepConfig,
+  buildDefaultFollowUpSteps,
+} from "@/lib/api";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +18,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Modal, ConfirmModal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
+import { EscalateModal } from "@/components/invoices/escalate-modal";
 import { useToast } from "@/components/ui/toast";
 
 function formatNaira(amount: number): string {
@@ -26,6 +34,28 @@ function formatDate(date: string): string {
   });
 }
 
+function computeScheduledDate(dueDate: string, offsetDays: number): string {
+  const due = new Date(dueDate);
+  const d = new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000);
+  return d.toLocaleDateString("en-NG", { day: "numeric", month: "short" });
+}
+
+function isInPast(dueDate: string, offsetDays: number): boolean {
+  const due = new Date(dueDate);
+  return (
+    new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000) <= new Date()
+  );
+}
+
+const TEMPLATE_LABELS: Record<string, string> = {
+  PRE_DUE_REMINDER: "Pre-due Reminder",
+  FIRST_OVERDUE: "First Overdue Notice",
+  SECOND_OVERDUE: "Second Overdue Notice",
+  FINAL_NOTICE: "Final Notice",
+};
+
+type SendPhase = "configure" | "confirmed";
+
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -34,7 +64,9 @@ export default function InvoiceDetailPage() {
 
   const [paymentModal, setPaymentModal] = useState(false);
   const [sendModal, setSendModal] = useState(false);
+  const [sendPhase, setSendPhase] = useState<SendPhase>("configure");
   const [deleteModal, setDeleteModal] = useState(false);
+  const [escalateModal, setEscalateModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [paymentRef, setPaymentRef] = useState("");
@@ -42,11 +74,25 @@ export default function InvoiceDetailPage() {
   const [sendChannels, setSendChannels] = useState<("EMAIL" | "WHATSAPP")[]>([
     "EMAIL",
   ]);
+  const [followUpSteps, setFollowUpSteps] = useState<FollowUpStepConfig[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const [confirmedSteps, setConfirmedSteps] = useState<FollowUpStepConfig[]>(
+    [],
+  );
 
   const { data: invoice, isLoading } = useQuery<Invoice>({
     queryKey: ["invoice", id],
     queryFn: () => api.getInvoice(id),
   });
+
+  const pendingCount =
+    invoice?.followUpSchedules?.filter((s) => s.status === "PENDING").length ??
+    0;
+  const pausedCount =
+    invoice?.followUpSchedules?.filter((s) => s.status === "PAUSED").length ??
+    0;
+  const isSequencePaused = pausedCount > 0 && pendingCount === 0;
+  const hasActiveSequence = pendingCount > 0 || pausedCount > 0;
 
   const logPaymentMutation = useMutation({
     mutationFn: () =>
@@ -70,17 +116,6 @@ export default function InvoiceDetailPage() {
     onError: () => toast("Failed to record payment", "error"),
   });
 
-  const sendMutation = useMutation({
-    mutationFn: () => api.sendInvoice(id, sendChannels),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      toast("Invoice sent successfully", "success");
-      setSendModal(false);
-    },
-    onError: () => toast("Failed to send invoice", "error"),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: () => api.deleteInvoice(id),
     onSuccess: () => {
@@ -90,6 +125,70 @@ export default function InvoiceDetailPage() {
     },
     onError: () => toast("Failed to delete invoice", "error"),
   });
+
+  const pauseMutation = useMutation({
+    mutationFn: () => api.pauseFollowUps(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      queryClient.invalidateQueries({ queryKey: ["followups", id] });
+      toast(
+        `${data.count} follow-up${data.count !== 1 ? "s" : ""} paused`,
+        "success",
+      );
+    },
+    onError: () => toast("Failed to pause follow-ups", "error"),
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: () => api.resumeFollowUps(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      queryClient.invalidateQueries({ queryKey: ["followups", id] });
+      toast(
+        `${data.count} follow-up${data.count !== 1 ? "s" : ""} resumed`,
+        "success",
+      );
+    },
+    onError: () => toast("Failed to resume follow-ups", "error"),
+  });
+
+  const openSendModal = () => {
+    if (!invoice) return;
+    const steps = buildDefaultFollowUpSteps(!!invoice.client?.phone);
+    setFollowUpSteps(steps);
+    setSendPhase("configure");
+    const initialChannels: ("EMAIL" | "WHATSAPP")[] = ["EMAIL"];
+    if (invoice.client?.phone) initialChannels.push("WHATSAPP");
+    setSendChannels(initialChannels);
+    setSendModal(true);
+  };
+
+  const handleConfirmSend = async () => {
+    if (sendChannels.length === 0 || !invoice) return;
+    setIsSending(true);
+    try {
+      await api.sendInvoice(id, sendChannels, followUpSteps);
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      setConfirmedSteps(followUpSteps);
+      setSendPhase("confirmed");
+    } catch {
+      toast("Failed to send invoice", "error");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSendModalClose = () => {
+    if (isSending) return;
+    setSendModal(false);
+  };
+
+  const toggleChannel = (ch: "EMAIL" | "WHATSAPP") => {
+    setSendChannels((prev) =>
+      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch],
+    );
+  };
 
   const downloadPDF = async () => {
     try {
@@ -115,14 +214,6 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const toggleChannel = (channel: "EMAIL" | "WHATSAPP") => {
-    setSendChannels((prev) =>
-      prev.includes(channel)
-        ? prev.filter((c) => c !== channel)
-        : [...prev, channel],
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto flex flex-col gap-4">
@@ -142,6 +233,10 @@ export default function InvoiceDetailPage() {
   const remainingAmount =
     Number(invoice.total) -
     (invoice.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0);
+
+  const activeConfirmedSteps = confirmedSteps.filter(
+    (s) => s.enabled && !isInPast(invoice.dueDate, s.offsetDays),
+  );
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-5">
@@ -170,6 +265,17 @@ export default function InvoiceDetailPage() {
               {invoice.title}
             </h1>
             <StatusBadge status={invoice.status as InvoiceStatus} />
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary-50 text-primary-700 text-xs font-medium">
+                {pendingCount} follow-up{pendingCount !== 1 ? "s" : ""}{" "}
+                scheduled
+              </span>
+            )}
+            {isSequencePaused && (
+              <span className="inline-flex items-center h-5 px-2 rounded-full bg-neutral-100 text-neutral-600 text-xs font-medium">
+                sequence paused
+              </span>
+            )}
           </div>
           <p className="text-sm text-neutral-500">{invoice.invoiceNumber}</p>
         </div>
@@ -327,6 +433,99 @@ export default function InvoiceDetailPage() {
         </div>
       )}
 
+      {hasActiveSequence && (
+        <div className="bg-white rounded-xl border border-neutral-200 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div
+                className={[
+                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                  isSequencePaused ? "bg-neutral-100" : "bg-primary-50",
+                ].join(" ")}
+              >
+                {isSequencePaused ? (
+                  <svg
+                    className="w-4 h-4 text-neutral-500"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-4 h-4 text-primary-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                    />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-neutral-900">
+                  {isSequencePaused
+                    ? "Collection sequence paused"
+                    : `${pendingCount} follow-up${pendingCount !== 1 ? "s" : ""} scheduled`}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {isSequencePaused
+                    ? "Resume to continue sending reminders"
+                    : "Automatic reminders active"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {!isSequencePaused ? (
+                <button
+                  onClick={() => pauseMutation.mutate()}
+                  disabled={pauseMutation.isPending}
+                  className="text-xs font-medium text-neutral-500 hover:text-neutral-700 transition-colors disabled:opacity-50"
+                >
+                  Pause
+                </button>
+              ) : (
+                <button
+                  onClick={() => resumeMutation.mutate()}
+                  disabled={resumeMutation.isPending}
+                  className="text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors disabled:opacity-50"
+                >
+                  Resume
+                </button>
+              )}
+              <button
+                onClick={() => setEscalateModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning-50 text-warning-700 text-xs font-medium hover:bg-warning-100 transition-colors"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                Escalate now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-3 pb-4">
         {canPay && (
           <Button
@@ -344,7 +543,7 @@ export default function InvoiceDetailPage() {
         {canSend && (
           <Button
             variant="secondary"
-            onClick={() => setSendModal(true)}
+            onClick={openSendModal}
             className="flex-1"
           >
             {invoice.sentAt ? "Send Reminder" : "Send Invoice"}
@@ -361,6 +560,16 @@ export default function InvoiceDetailPage() {
         {!["DRAFT", "CANCELLED"].includes(invoice.status) && (
           <Button variant="ghost" onClick={copyPaymentLink} size="md">
             Copy Link
+          </Button>
+        )}
+        {!hasActiveSequence && canSend && invoice.sentAt && (
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={() => setEscalateModal(true)}
+            className="text-warning-700"
+          >
+            Escalate
           </Button>
         )}
         {canEdit && (
@@ -431,52 +640,147 @@ export default function InvoiceDetailPage() {
 
       <Modal
         open={sendModal}
-        onClose={() => setSendModal(false)}
-        title={invoice.sentAt ? "Send Reminder" : "Send Invoice"}
+        onClose={handleSendModalClose}
+        title={
+          sendPhase === "confirmed" ? "Collection agent active" : "Send Invoice"
+        }
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setSendModal(false)}>
-              Cancel
+          sendPhase === "configure" ? (
+            <>
+              <Button
+                variant="secondary"
+                onClick={handleSendModalClose}
+                disabled={isSending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmSend}
+                loading={isSending}
+                disabled={sendChannels.length === 0}
+              >
+                Send Invoice
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => setSendModal(false)} className="w-full">
+              Done
             </Button>
-            <Button
-              onClick={() => sendMutation.mutate()}
-              loading={sendMutation.isPending}
-              disabled={sendChannels.length === 0}
-            >
-              Send
-            </Button>
-          </>
+          )
         }
       >
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-neutral-600">
-            Select how to send this invoice to {invoice.client?.name}.
-          </p>
-          <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
-            <input
-              type="checkbox"
-              checked={sendChannels.includes("EMAIL")}
-              onChange={() => toggleChannel("EMAIL")}
-              className="w-4 h-4 text-primary-500"
-            />
-            <span className="text-sm font-medium text-neutral-900">
-              Email ({invoice.client?.email})
-            </span>
-          </label>
-          {hasPhone && (
-            <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
-              <input
-                type="checkbox"
-                checked={sendChannels.includes("WHATSAPP")}
-                onChange={() => toggleChannel("WHATSAPP")}
-                className="w-4 h-4 text-primary-500"
+        {sendPhase === "configure" ? (
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-neutral-700">
+                Deliver invoice to{" "}
+                <span className="text-neutral-900">{invoice.client?.name}</span>{" "}
+                via:
+              </p>
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
+                <input
+                  type="checkbox"
+                  checked={sendChannels.includes("EMAIL")}
+                  onChange={() => toggleChannel("EMAIL")}
+                  className="w-4 h-4 text-primary-500"
+                />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Email</p>
+                  {invoice.client?.email && (
+                    <p className="text-xs text-neutral-500">
+                      {invoice.client.email}
+                    </p>
+                  )}
+                </div>
+              </label>
+              {hasPhone ? (
+                <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
+                  <input
+                    type="checkbox"
+                    checked={sendChannels.includes("WHATSAPP")}
+                    onChange={() => toggleChannel("WHATSAPP")}
+                    className="w-4 h-4 text-primary-500"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">
+                      WhatsApp
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {invoice.client?.phone}
+                    </p>
+                  </div>
+                </label>
+              ) : (
+                <p className="text-xs text-neutral-400 px-1">
+                  Add a phone number to this client to enable WhatsApp delivery.
+                </p>
+              )}
+            </div>
+
+            <div className="border-t border-neutral-100 pt-4">
+              <p className="text-sm font-medium text-neutral-700 mb-3">
+                Automatic follow-up sequence
+              </p>
+              <FollowUpTimeline
+                dueDate={invoice.dueDate}
+                hasPhone={hasPhone}
+                steps={followUpSteps}
+                onChange={setFollowUpSteps}
               />
-              <span className="text-sm font-medium text-neutral-900">
-                WhatsApp ({invoice.client?.phone})
-              </span>
-            </label>
-          )}
-        </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="w-12 h-12 rounded-full bg-success-50 flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-success-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-base font-semibold text-neutral-900">
+                Invoice sent
+              </p>
+              <p className="text-sm text-neutral-500 mt-0.5">
+                Your collection agent is now active
+              </p>
+            </div>
+            {activeConfirmedSteps.length > 0 ? (
+              <div className="w-full bg-neutral-50 rounded-lg p-3 flex flex-col gap-2">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                  Scheduled follow-ups
+                </p>
+                {activeConfirmedSteps.map((step) => (
+                  <div
+                    key={step.template}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="text-neutral-700">
+                      {TEMPLATE_LABELS[step.template]}
+                    </span>
+                    <span className="text-xs font-medium text-primary-600 tabular-nums">
+                      {computeScheduledDate(invoice.dueDate, step.offsetDays)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-neutral-500 text-center">
+                No follow-ups were scheduled — all steps were in the past or
+                disabled.
+              </p>
+            )}
+          </div>
+        )}
       </Modal>
 
       <ConfirmModal
@@ -487,6 +791,17 @@ export default function InvoiceDetailPage() {
         message="This invoice will be permanently deleted. This action cannot be undone."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
+      />
+
+      <EscalateModal
+        invoiceId={id}
+        hasPhone={hasPhone}
+        open={escalateModal}
+        onClose={() => setEscalateModal(false)}
+        onSent={() => {
+          setEscalateModal(false);
+          queryClient.invalidateQueries({ queryKey: ["followups", id] });
+        }}
       />
     </div>
   );

@@ -33,7 +33,8 @@ export const FollowUpStatus = {
   PENDING: 'PENDING',
   SENT: 'SENT',
   FAILED: 'FAILED',
-  CANCELLED: 'CANCELLED'
+  CANCELLED: 'CANCELLED',
+  PAUSED: 'PAUSED'
 } as const
 
 export type FollowUpStatus = (typeof FollowUpStatus)[keyof typeof FollowUpStatus]

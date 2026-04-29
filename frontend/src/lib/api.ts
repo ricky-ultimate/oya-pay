@@ -66,6 +66,13 @@ export type InvoiceStatus =
   | "OVERDUE"
   | "CANCELLED";
 
+export type FollowUpStatusType =
+  | "PENDING"
+  | "SENT"
+  | "FAILED"
+  | "CANCELLED"
+  | "PAUSED";
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -90,6 +97,7 @@ export interface Invoice {
   items?: InvoiceItem[];
   payments?: Payment[];
   followUpLogs?: FollowUpLog[];
+  followUpSchedules?: Array<{ id: string; status: string }>;
 }
 
 export interface DashboardStats {
@@ -184,6 +192,17 @@ export interface PaymentLinkResponse {
   reference: string;
 }
 
+export interface FollowUpStepConfig {
+  template:
+    | "PRE_DUE_REMINDER"
+    | "FIRST_OVERDUE"
+    | "SECOND_OVERDUE"
+    | "FINAL_NOTICE";
+  offsetDays: number;
+  channels: ("EMAIL" | "WHATSAPP")[];
+  enabled: boolean;
+}
+
 export interface FollowUpSchedule {
   id: string;
   invoiceId: string;
@@ -196,7 +215,7 @@ export interface FollowUpSchedule {
     | "FINAL_NOTICE";
   scheduledAt: string;
   sentAt: string | null;
-  status: "PENDING" | "SENT" | "FAILED" | "CANCELLED";
+  status: FollowUpStatusType;
   createdAt: string;
 }
 
@@ -204,6 +223,74 @@ export interface FollowUpActivity {
   schedules: FollowUpSchedule[];
   logs: FollowUpLog[];
 }
+
+export interface FollowUpPreviewResponse {
+  email: { subject: string; html: string };
+  whatsapp: string;
+  channel: string;
+}
+
+export const DEFAULT_FOLLOWUP_STEPS: FollowUpStepConfig[] = [
+  {
+    template: "PRE_DUE_REMINDER",
+    offsetDays: -3,
+    channels: ["EMAIL"],
+    enabled: true,
+  },
+  {
+    template: "FIRST_OVERDUE",
+    offsetDays: 1,
+    channels: ["EMAIL"],
+    enabled: true,
+  },
+  {
+    template: "SECOND_OVERDUE",
+    offsetDays: 7,
+    channels: ["EMAIL"],
+    enabled: true,
+  },
+  {
+    template: "FINAL_NOTICE",
+    offsetDays: 14,
+    channels: ["EMAIL"],
+    enabled: true,
+  },
+];
+
+export const buildDefaultFollowUpSteps = (
+  hasPhone: boolean,
+): FollowUpStepConfig[] => {
+  const channels: ("EMAIL" | "WHATSAPP")[] = hasPhone
+    ? ["EMAIL", "WHATSAPP"]
+    : ["EMAIL"];
+
+  return [
+    {
+      template: "PRE_DUE_REMINDER",
+      offsetDays: -3,
+      channels: [...channels],
+      enabled: true,
+    },
+    {
+      template: "FIRST_OVERDUE",
+      offsetDays: 1,
+      channels: [...channels],
+      enabled: true,
+    },
+    {
+      template: "SECOND_OVERDUE",
+      offsetDays: 7,
+      channels: [...channels],
+      enabled: true,
+    },
+    {
+      template: "FINAL_NOTICE",
+      offsetDays: 14,
+      channels: [...channels],
+      enabled: true,
+    },
+  ];
+};
 
 class ApiClient {
   private client: AxiosInstance;
@@ -416,10 +503,11 @@ class ApiClient {
   async sendInvoice(
     id: string,
     channels: ("EMAIL" | "WHATSAPP")[],
+    followUpConfig?: FollowUpStepConfig[],
   ): Promise<{ results: Record<string, boolean>; invoiceNumber: string }> {
     const response = await this.client.post<
       ApiResponse<{ results: Record<string, boolean>; invoiceNumber: string }>
-    >(`/api/invoices/${id}/send`, { channels });
+    >(`/api/invoices/${id}/send`, { channels, followUpConfig });
     return response.data.data!;
   }
 
@@ -481,6 +569,55 @@ class ApiClient {
   async getFollowUpActivity(invoiceId: string): Promise<FollowUpActivity> {
     const response = await this.client.get<ApiResponse<FollowUpActivity>>(
       `/api/invoices/${invoiceId}/followups`,
+    );
+    return response.data.data!;
+  }
+
+  async previewFollowUp(
+    invoiceId: string,
+    template: string,
+    channel: string,
+  ): Promise<FollowUpPreviewResponse> {
+    const response = await this.client.post<
+      ApiResponse<FollowUpPreviewResponse>
+    >(`/api/invoices/${invoiceId}/followups/preview`, { template, channel });
+    return response.data.data!;
+  }
+
+  async triggerFollowUp(
+    invoiceId: string,
+    scheduleId: string,
+    note?: string,
+  ): Promise<void> {
+    await this.client.post(
+      `/api/invoices/${invoiceId}/followups/${scheduleId}/trigger`,
+      { note },
+    );
+  }
+
+  async escalateFollowUp(
+    invoiceId: string,
+    template: string,
+    channel: string,
+    note?: string,
+  ): Promise<void> {
+    await this.client.post(`/api/invoices/${invoiceId}/followups/escalate`, {
+      template,
+      channel,
+      note,
+    });
+  }
+
+  async pauseFollowUps(invoiceId: string): Promise<{ count: number }> {
+    const response = await this.client.patch<ApiResponse<{ count: number }>>(
+      `/api/invoices/${invoiceId}/followups/pause`,
+    );
+    return response.data.data!;
+  }
+
+  async resumeFollowUps(invoiceId: string): Promise<{ count: number }> {
+    const response = await this.client.patch<ApiResponse<{ count: number }>>(
+      `/api/invoices/${invoiceId}/followups/resume`,
     );
     return response.data.data!;
   }
