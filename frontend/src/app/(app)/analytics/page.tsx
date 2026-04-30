@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { api, FollowUpAnalytics } from "@/lib/api";
+import { api, FollowUpAnalytics, DashboardStats } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ComposedChart,
@@ -38,6 +38,10 @@ function formatNaira(amount: number): string {
   if (amount >= 1_000) {
     return `₦${(amount / 1_000).toFixed(0)}k`;
   }
+  return `₦${amount.toLocaleString("en-NG")}`;
+}
+
+function formatNairaFull(amount: number): string {
   return `₦${amount.toLocaleString("en-NG")}`;
 }
 
@@ -384,9 +388,24 @@ export default function AnalyticsPage() {
     staleTime: 120_000,
   });
 
+  const { data: dashboardData } = useQuery<DashboardStats>({
+    queryKey: ["dashboard"],
+    queryFn: () => api.getDashboardStats(),
+    staleTime: 120_000,
+  });
+
   if (isLoading) return <AnalyticsSkeleton />;
 
   const hasData = (data?.totalFollowUpsSent ?? 0) > 0;
+  const unprotectedOutstanding =
+    dashboardData?.overview.unprotectedOutstanding ?? 0;
+
+  const currentMonth = new Date().toISOString().substring(0, 7);
+  const currentMonthData = data?.monthlyTrend.find(
+    (m) => m.month === currentMonth,
+  );
+  const followUpsThisMonth = currentMonthData?.followUpsSent ?? 0;
+  const recoveredThisMonth = data?.recoveredThisMonth ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -406,14 +425,14 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
               label="Recovered this month"
-              value={`₦${Number(data?.recoveredThisMonth ?? 0).toLocaleString("en-NG")}`}
+              value={formatNairaFull(recoveredThisMonth)}
               subtext="Payments within 48h of follow-up"
               accent
             />
             <StatCard
               label="Total recovered"
-              value={`₦${Number(data?.totalRecovered ?? 0).toLocaleString("en-NG")}`}
-              subtext="All time"
+              value={formatNairaFull(data?.totalRecovered ?? 0)}
+              subtext="All time via automated reminders"
             />
             <StatCard
               label="Follow-ups sent"
@@ -421,6 +440,48 @@ export default function AnalyticsPage() {
               subtext="All time"
             />
           </div>
+
+          {(followUpsThisMonth > 0 || recoveredThisMonth > 0) && (
+            <div className="bg-white rounded-xl border border-neutral-200 px-5 py-4">
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+                This month
+              </p>
+              <div className="flex items-center gap-6 flex-wrap">
+                <div>
+                  <p className="text-sm font-medium text-neutral-900 tabular-nums">
+                    {followUpsThisMonth} follow-up
+                    {followUpsThisMonth !== 1 ? "s" : ""} sent
+                  </p>
+                </div>
+                {recoveredThisMonth > 0 && (
+                  <>
+                    <div className="w-px h-8 bg-neutral-200 hidden sm:block" />
+                    <div>
+                      <p className="text-sm font-semibold text-success-700 tabular-nums">
+                        {formatNairaFull(recoveredThisMonth)} recovered
+                      </p>
+                      <p className="text-xs text-success-600">
+                        via automated reminders
+                      </p>
+                    </div>
+                  </>
+                )}
+                {unprotectedOutstanding > 0 && (
+                  <>
+                    <div className="w-px h-8 bg-neutral-200 hidden sm:block" />
+                    <div>
+                      <p className="text-sm font-semibold text-warning-700 tabular-nums">
+                        {formatNairaFull(unprotectedOutstanding)} at risk
+                      </p>
+                      <p className="text-xs text-warning-600">
+                        outstanding with no active follow-up
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {data?.bestPerformingTemplate && (
             <div className="bg-warning-50 border border-warning-200 rounded-xl px-5 py-4 flex items-start gap-3">
