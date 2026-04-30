@@ -4,13 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { api, buildDefaultFollowUpSteps } from "@/lib/api";
-import type {
-  Invoice,
-  InvoiceStatus,
-  FollowUpStepConfig,
-  FollowUpActivity,
-} from "@/types";
+import { api } from "@/lib/api";
+import type { Invoice, InvoiceStatus, FollowUpActivity } from "@/types";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,16 +13,26 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Modal, ConfirmModal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WhatsAppMockup } from "@/components/ui/whatsapp-mockup";
+import { BackButton } from "@/components/ui/back-button";
+import { SectionCard, SectionCardBody } from "@/components/ui/section-card";
+import {
+  IconWhatsApp,
+  IconCheckCircle,
+  IconX,
+  IconClipboard,
+  IconPause,
+} from "@/components/ui/icons";
+import { ChannelSelector } from "@/components/invoices/channel-selector";
+import { SendConfirmedView } from "@/components/invoices/send-confirmed-view";
 import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
 import { EscalateModal } from "@/components/invoices/escalate-modal";
+import { EscalateButton } from "@/components/invoices/escalate-button";
 import { InvoiceTimeline } from "@/components/invoices/invoice-timeline";
+import { WhatsAppMockup } from "@/components/ui/whatsapp-mockup";
 import { useToast } from "@/components/ui/toast";
+import { useSendInvoice } from "@/hooks/use-send-invoice";
 import { formatNaira, formatDate } from "@/utils/format";
-import { computeScheduledDate, isInPast } from "@/utils/invoice";
 import { TEMPLATE_LABELS } from "@/utils/constants";
-
-type SendPhase = "configure" | "confirmed";
 
 function RecoveryBanner({
   amount,
@@ -42,19 +47,7 @@ function RecoveryBanner({
     <div className="bg-success-50 border border-success-200 rounded-xl px-5 py-4 flex items-start justify-between gap-4">
       <div className="flex items-start gap-3">
         <div className="w-8 h-8 rounded-full bg-success-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-          <svg
-            className="w-4 h-4 text-success-700"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+          <IconCheckCircle className="w-4 h-4 text-success-700" />
         </div>
         <div>
           <p className="text-sm font-semibold text-success-900">
@@ -70,19 +63,7 @@ function RecoveryBanner({
         className="text-success-600 hover:text-success-800 flex-shrink-0 mt-0.5"
         aria-label="Dismiss"
       >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
+        <IconX />
       </button>
     </div>
   );
@@ -95,8 +76,6 @@ export default function InvoiceDetailPage() {
   const { toast } = useToast();
 
   const [paymentModal, setPaymentModal] = useState(false);
-  const [sendModal, setSendModal] = useState(false);
-  const [sendPhase, setSendPhase] = useState<SendPhase>("configure");
   const [deleteModal, setDeleteModal] = useState(false);
   const [escalateModal, setEscalateModal] = useState(false);
   const [escalateInitialChannel, setEscalateInitialChannel] = useState<
@@ -106,19 +85,11 @@ export default function InvoiceDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [paymentRef, setPaymentRef] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
-  const [sendChannels, setSendChannels] = useState<("EMAIL" | "WHATSAPP")[]>([
-    "EMAIL",
-  ]);
-  const [followUpSteps, setFollowUpSteps] = useState<FollowUpStepConfig[]>([]);
-  const [isSending, setIsSending] = useState(false);
-  const [confirmedSteps, setConfirmedSteps] = useState<FollowUpStepConfig[]>(
-    [],
-  );
   const [recoveryBannerDismissed, setRecoveryBannerDismissed] = useState(false);
-  const prevStatusRef = useRef<string | null>(null);
   const [justRecoveredAmount, setJustRecoveredAmount] = useState<number | null>(
     null,
   );
+  const prevStatusRef = useRef<string | null>(null);
 
   const { data: invoice, isLoading } = useQuery<Invoice>({
     queryKey: ["invoice", id],
@@ -132,11 +103,37 @@ export default function InvoiceDetailPage() {
     staleTime: 30_000,
   });
 
+  const hasPhone = !!invoice?.client?.phone;
+
+  const {
+    sendModal,
+    sendPhase,
+    sendChannels,
+    followUpSteps,
+    confirmedSteps,
+    isSending,
+    openSendModal,
+    closeSendModal,
+    toggleChannel,
+    setFollowUpSteps,
+    confirmSend,
+  } = useSendInvoice({
+    invoiceId: id,
+    hasPhone,
+    dueDate: invoice?.dueDate ?? "",
+  });
+
+  const { data: invoiceSentPreview, isLoading: previewLoading } = useQuery({
+    queryKey: ["followup-preview", id, "INVOICE_SENT", "WHATSAPP"],
+    queryFn: () => api.previewFollowUp(id, "INVOICE_SENT", "WHATSAPP"),
+    enabled: sendModal && hasPhone && sendPhase === "configure",
+    staleTime: 300_000,
+  });
+
   useEffect(() => {
     if (!invoice) return;
     const prev = prevStatusRef.current;
     const current = invoice.status;
-
     if (
       prev !== null &&
       prev !== "PAID" &&
@@ -147,18 +144,8 @@ export default function InvoiceDetailPage() {
       setJustRecoveredAmount(total);
       toast(`Automated reminder recovered ${formatNaira(total)}`, "success");
     }
-
     prevStatusRef.current = current;
   }, [invoice, toast]);
-
-  const hasPhone = !!invoice?.client?.phone;
-
-  const { data: invoiceSentPreview, isLoading: previewLoading } = useQuery({
-    queryKey: ["followup-preview", id, "INVOICE_SENT", "WHATSAPP"],
-    queryFn: () => api.previewFollowUp(id, "INVOICE_SENT", "WHATSAPP"),
-    enabled: sendModal && hasPhone && sendPhase === "configure",
-    staleTime: 300_000,
-  });
 
   const pendingCount =
     invoice?.followUpSchedules?.filter((s) => s.status === "PENDING").length ??
@@ -227,49 +214,6 @@ export default function InvoiceDetailPage() {
     onError: () => toast("Failed to resume follow-ups", "error"),
   });
 
-  const openSendModal = () => {
-    if (!invoice) return;
-    const phone = !!invoice.client?.phone;
-    const steps = buildDefaultFollowUpSteps(phone);
-    setFollowUpSteps(steps);
-    setSendPhase("configure");
-    setSendChannels(phone ? ["WHATSAPP", "EMAIL"] : ["EMAIL"]);
-    setSendModal(true);
-  };
-
-  const openWhatsAppSend = () => {
-    setEscalateInitialChannel("WHATSAPP");
-    setEscalateModal(true);
-  };
-
-  const handleConfirmSend = async () => {
-    if (sendChannels.length === 0 || !invoice) return;
-    setIsSending(true);
-    try {
-      await api.sendInvoice(id, sendChannels, followUpSteps);
-      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      queryClient.invalidateQueries({ queryKey: ["followups", id] });
-      setConfirmedSteps(followUpSteps);
-      setSendPhase("confirmed");
-    } catch {
-      toast("Failed to send invoice", "error");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleSendModalClose = () => {
-    if (isSending) return;
-    setSendModal(false);
-  };
-
-  const toggleChannel = (ch: "EMAIL" | "WHATSAPP") => {
-    setSendChannels((prev) =>
-      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch],
-    );
-  };
-
   const downloadPDF = async () => {
     try {
       const blob = await api.downloadInvoicePDF(id);
@@ -312,19 +256,12 @@ export default function InvoiceDetailPage() {
   const remainingAmount =
     Number(invoice.total) -
     (invoice.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0);
-
-  const activeConfirmedSteps = confirmedSteps.filter(
-    (s) => s.enabled && !isInPast(invoice.dueDate, s.offsetDays),
-  );
-
   const showTimeline =
     !!invoice.sentAt || (activity?.schedules && activity.schedules.length > 0);
-
   const showRecoveryBanner =
     !recoveryBannerDismissed &&
     !!invoice.followUpAttribution &&
-    (invoice.status === "PAID" || invoice.status === "PARTIAL");
-
+    ["PAID", "PARTIAL"].includes(invoice.status);
   const showJustRecoveredBanner =
     !recoveryBannerDismissed &&
     justRecoveredAmount !== null &&
@@ -333,24 +270,7 @@ export default function InvoiceDetailPage() {
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-5">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 transition-colors"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
+        <BackButton />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-neutral-900">
@@ -407,13 +327,7 @@ export default function InvoiceDetailPage() {
           <p className="text-xs text-neutral-500">{invoice.client?.email}</p>
           {invoice.client?.phone && (
             <div className="flex items-center gap-1 mt-0.5">
-              <svg
-                className="w-3 h-3 text-brand-green"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-              </svg>
+              <IconWhatsApp className="w-3 h-3 text-brand-green" />
               <p className="text-xs text-neutral-500">{invoice.client.phone}</p>
             </div>
           )}
@@ -524,23 +438,20 @@ export default function InvoiceDetailPage() {
       </div>
 
       {invoice.notes && (
-        <div className="bg-white rounded-xl border border-neutral-200 p-5">
-          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
-            Notes
-          </p>
-          <p className="text-sm text-neutral-700 whitespace-pre-line">
-            {invoice.notes}
-          </p>
-        </div>
+        <SectionCard>
+          <SectionCardBody>
+            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+              Notes
+            </p>
+            <p className="text-sm text-neutral-700 whitespace-pre-line">
+              {invoice.notes}
+            </p>
+          </SectionCardBody>
+        </SectionCard>
       )}
 
       {(invoice.payments?.length ?? 0) > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200">
-          <div className="px-5 py-3.5 border-b border-neutral-200">
-            <h2 className="text-sm font-semibold text-neutral-900">
-              Payment History
-            </h2>
-          </div>
+        <SectionCard title="Payment History">
           <div className="divide-y divide-neutral-100">
             {invoice.payments?.map((payment) => (
               <div
@@ -563,7 +474,7 @@ export default function InvoiceDetailPage() {
               </div>
             ))}
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {hasActiveSequence && (
@@ -577,31 +488,9 @@ export default function InvoiceDetailPage() {
                 ].join(" ")}
               >
                 {isSequencePaused ? (
-                  <svg
-                    className="w-4 h-4 text-neutral-500"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <IconPause className="w-4 h-4 text-neutral-500" />
                 ) : (
-                  <svg
-                    className="w-4 h-4 text-primary-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                  </svg>
+                  <IconClipboard className="w-4 h-4 text-primary-600" />
                 )}
               </div>
               <div>
@@ -635,25 +524,7 @@ export default function InvoiceDetailPage() {
                   Resume
                 </button>
               )}
-              <button
-                onClick={() => setEscalateModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning-50 text-warning-700 text-xs font-medium hover:bg-warning-100 transition-colors"
-              >
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-                Escalate
-              </button>
+              <EscalateButton onClick={() => setEscalateModal(true)} />
             </div>
           </div>
         </div>
@@ -676,7 +547,7 @@ export default function InvoiceDetailPage() {
         {canSend && (
           <Button
             variant="secondary"
-            onClick={openSendModal}
+            onClick={() => openSendModal(hasPhone)}
             className="flex-1"
           >
             {invoice.sentAt ? "Send Reminder" : "Send Invoice"}
@@ -684,12 +555,13 @@ export default function InvoiceDetailPage() {
         )}
         {canSend && hasPhone && invoice.sentAt && (
           <button
-            onClick={openWhatsAppSend}
+            onClick={() => {
+              setEscalateInitialChannel("WHATSAPP");
+              setEscalateModal(true);
+            }}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#25D366] text-white text-sm font-medium hover:bg-[#128C7E] transition-colors"
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-            </svg>
+            <IconWhatsApp className="w-4 h-4" />
             WhatsApp
           </button>
         )}
@@ -774,7 +646,9 @@ export default function InvoiceDetailPage() {
 
       <Modal
         open={sendModal}
-        onClose={handleSendModalClose}
+        onClose={() => {
+          if (!isSending) closeSendModal();
+        }}
         title={
           sendPhase === "confirmed"
             ? "Collection agent active"
@@ -787,13 +661,13 @@ export default function InvoiceDetailPage() {
             <>
               <Button
                 variant="secondary"
-                onClick={handleSendModalClose}
+                onClick={closeSendModal}
                 disabled={isSending}
               >
                 Cancel
               </Button>
               <Button
-                onClick={handleConfirmSend}
+                onClick={confirmSend}
                 loading={isSending}
                 disabled={sendChannels.length === 0}
               >
@@ -801,7 +675,7 @@ export default function InvoiceDetailPage() {
               </Button>
             </>
           ) : (
-            <Button onClick={() => setSendModal(false)} className="w-full">
+            <Button onClick={closeSendModal} className="w-full">
               Done
             </Button>
           )
@@ -809,85 +683,15 @@ export default function InvoiceDetailPage() {
       >
         {sendPhase === "configure" ? (
           <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium text-neutral-700">
-                Deliver to{" "}
-                <span className="text-neutral-900">{invoice.client?.name}</span>{" "}
-                via:
-              </p>
-
-              {hasPhone ? (
-                <label className="flex items-start gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
-                  <input
-                    type="checkbox"
-                    checked={sendChannels.includes("WHATSAPP")}
-                    onChange={() => toggleChannel("WHATSAPP")}
-                    className="w-4 h-4 text-success-600 mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <svg
-                        className="w-4 h-4 text-brand-green flex-shrink-0"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                      </svg>
-                      <p className="text-sm font-medium text-neutral-900">
-                        WhatsApp
-                      </p>
-                      <span className="text-xs bg-success-50 text-success-700 px-1.5 py-0.5 rounded font-medium">
-                        Recommended
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-500 mt-0.5">
-                      {invoice.client?.phone}
-                    </p>
-                    {sendChannels.includes("WHATSAPP") && (
-                      <div className="mt-3">
-                        <WhatsAppMockup
-                          message={invoiceSentPreview?.whatsapp ?? ""}
-                          loading={previewLoading}
-                          senderName={invoice.client?.name}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </label>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-50 border border-neutral-200">
-                  <svg
-                    className="w-4 h-4 text-neutral-400 flex-shrink-0"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                  </svg>
-                  <p className="text-xs text-neutral-500">
-                    Add a phone number to this client to enable WhatsApp
-                    delivery.
-                  </p>
-                </div>
-              )}
-
-              <label className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
-                <input
-                  type="checkbox"
-                  checked={sendChannels.includes("EMAIL")}
-                  onChange={() => toggleChannel("EMAIL")}
-                  className="w-4 h-4 text-primary-500"
-                />
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">Email</p>
-                  {invoice.client?.email && (
-                    <p className="text-xs text-neutral-500">
-                      {invoice.client.email}
-                    </p>
-                  )}
-                </div>
-              </label>
-            </div>
-
+            <ChannelSelector
+              clientName={invoice.client?.name ?? ""}
+              clientEmail={invoice.client?.email}
+              clientPhone={invoice.client?.phone}
+              selectedChannels={sendChannels}
+              onToggle={toggleChannel}
+              whatsAppPreviewMessage={invoiceSentPreview?.whatsapp}
+              whatsAppPreviewLoading={previewLoading}
+            />
             <div className="border-t border-neutral-100 pt-4">
               <p className="text-sm font-medium text-neutral-700 mb-3">
                 Automatic follow-up sequence
@@ -901,79 +705,11 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-4 py-2">
-            <div className="w-12 h-12 rounded-full bg-success-50 flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-success-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-            <div className="text-center">
-              <p className="text-base font-semibold text-neutral-900">
-                {invoice.sentAt ? "Reminder sent" : "Invoice sent"}
-              </p>
-              <p className="text-sm text-neutral-500 mt-0.5">
-                Your collection agent is now active
-              </p>
-            </div>
-            {activeConfirmedSteps.length > 0 && (
-              <div className="w-full bg-neutral-50 rounded-lg p-3 flex flex-col gap-2">
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
-                  Scheduled follow-ups
-                </p>
-                {activeConfirmedSteps.map((step) => (
-                  <div
-                    key={step.template}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-neutral-700">
-                      {TEMPLATE_LABELS[step.template]}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        {step.channels.includes("WHATSAPP") && (
-                          <svg
-                            className="w-3 h-3 text-brand-green"
-                            fill="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                          </svg>
-                        )}
-                        {step.channels.includes("EMAIL") && (
-                          <svg
-                            className="w-3 h-3 text-primary-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      <span className="text-xs font-medium text-primary-600 tabular-nums">
-                        {computeScheduledDate(invoice.dueDate, step.offsetDays)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <SendConfirmedView
+            dueDate={invoice.dueDate}
+            confirmedSteps={confirmedSteps}
+            title={invoice.sentAt ? "Reminder sent" : "Invoice sent"}
+          />
         )}
       </Modal>
 
