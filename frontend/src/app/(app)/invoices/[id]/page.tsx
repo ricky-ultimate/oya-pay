@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -55,9 +55,69 @@ const TEMPLATE_LABELS: Record<string, string> = {
   FIRST_OVERDUE: "First Overdue Notice",
   SECOND_OVERDUE: "Second Overdue Notice",
   FINAL_NOTICE: "Final Notice",
+  INVOICE_SENT: "Invoice Sent",
 };
 
 type SendPhase = "configure" | "confirmed";
+
+function RecoveryBanner({
+  amount,
+  followUpNumber,
+  onDismiss,
+}: {
+  amount: number;
+  followUpNumber: number;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="bg-success-50 border border-success-200 rounded-xl px-5 py-4 flex items-start justify-between gap-4">
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-full bg-success-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <svg
+            className="w-4 h-4 text-success-700"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-success-900">
+            {formatNaira(amount)} recovered by automated reminder
+          </p>
+          <p className="text-xs text-success-700 mt-0.5">
+            Payment arrived within 48 hours of follow-up #{followUpNumber}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={onDismiss}
+        className="text-success-600 hover:text-success-800 flex-shrink-0 mt-0.5"
+        aria-label="Dismiss"
+      >
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -85,6 +145,11 @@ export default function InvoiceDetailPage() {
   const [confirmedSteps, setConfirmedSteps] = useState<FollowUpStepConfig[]>(
     [],
   );
+  const [recoveryBannerDismissed, setRecoveryBannerDismissed] = useState(false);
+  const prevStatusRef = useRef<string | null>(null);
+  const [justRecoveredAmount, setJustRecoveredAmount] = useState<number | null>(
+    null,
+  );
 
   const { data: invoice, isLoading } = useQuery<Invoice>({
     queryKey: ["invoice", id],
@@ -97,6 +162,25 @@ export default function InvoiceDetailPage() {
     enabled: !!invoice,
     staleTime: 30_000,
   });
+
+  useEffect(() => {
+    if (!invoice) return;
+    const prev = prevStatusRef.current;
+    const current = invoice.status;
+
+    if (
+      prev !== null &&
+      prev !== "PAID" &&
+      current === "PAID" &&
+      invoice.followUpAttribution
+    ) {
+      const total = Number(invoice.total);
+      setJustRecoveredAmount(total);
+      toast(`Automated reminder recovered ${formatNaira(total)}`, "success");
+    }
+
+    prevStatusRef.current = current;
+  }, [invoice, toast]);
 
   const hasPhone = !!invoice?.client?.phone;
 
@@ -267,6 +351,16 @@ export default function InvoiceDetailPage() {
   const showTimeline =
     !!invoice.sentAt || (activity?.schedules && activity.schedules.length > 0);
 
+  const showRecoveryBanner =
+    !recoveryBannerDismissed &&
+    !!invoice.followUpAttribution &&
+    (invoice.status === "PAID" || invoice.status === "PARTIAL");
+
+  const showJustRecoveredBanner =
+    !recoveryBannerDismissed &&
+    justRecoveredAmount !== null &&
+    !!invoice.followUpAttribution;
+
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-5">
       <div className="flex items-center gap-3">
@@ -317,6 +411,22 @@ export default function InvoiceDetailPage() {
         )}
       </div>
 
+      {(showJustRecoveredBanner || showRecoveryBanner) &&
+        invoice.followUpAttribution && (
+          <RecoveryBanner
+            amount={
+              justRecoveredAmount !== null
+                ? justRecoveredAmount
+                : Number(invoice.total)
+            }
+            followUpNumber={invoice.followUpAttribution.followUpNumber}
+            onDismiss={() => {
+              setRecoveryBannerDismissed(true);
+              setJustRecoveredAmount(null);
+            }}
+          />
+        )}
+
       <div className="bg-white rounded-xl border border-neutral-200 p-5 grid grid-cols-2 gap-4">
         <div>
           <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">
@@ -349,6 +459,14 @@ export default function InvoiceDetailPage() {
           <p className="text-xs text-neutral-600">
             Due: {formatDate(invoice.dueDate)}
           </p>
+          {invoice.followUpAttribution && (
+            <p className="text-xs text-success-700 font-medium mt-1">
+              Paid after follow-up #{invoice.followUpAttribution.followUpNumber}
+              {invoice.followUpAttribution.template
+                ? ` — ${TEMPLATE_LABELS[invoice.followUpAttribution.template] ?? invoice.followUpAttribution.template}`
+                : ""}
+            </p>
+          )}
         </div>
       </div>
 

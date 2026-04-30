@@ -27,6 +27,8 @@ import {
 import { ENV } from "../../constants/env";
 import type { TemplateData } from "../../services/followup.templates";
 
+const RECOVERY_WINDOW_MS = 48 * 60 * 60 * 1000;
+
 export const createInvoice = async (
   userId: string,
   input: CreateInvoiceInput,
@@ -84,15 +86,15 @@ export const getInvoices = async (userId: string, status?: string) =>
     orderBy: { createdAt: "desc" },
   });
 
-export const getInvoiceById = async (userId: string, invoiceId: string) =>
-  prisma.invoice.findFirst({
+export const getInvoiceById = async (userId: string, invoiceId: string) => {
+  const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, userId },
     include: {
       items: true,
       client: true,
       user: true,
       payments: { orderBy: { paidAt: "desc" } },
-      followUpLogs: { orderBy: { sentAt: "desc" } },
+      followUpLogs: { orderBy: { sentAt: "asc" } },
       followUpSchedules: {
         where: {
           status: { in: [FollowUpStatus.PENDING, FollowUpStatus.PAUSED] },
@@ -101,6 +103,49 @@ export const getInvoiceById = async (userId: string, invoiceId: string) =>
       },
     },
   });
+
+  if (!invoice) return null;
+
+  let followUpAttribution: {
+    followUpNumber: number;
+    channel: string;
+    template: string | null;
+    sentAt: string;
+  } | null = null;
+
+  if (
+    invoice.status === InvoiceStatus.PAID ||
+    invoice.status === InvoiceStatus.PARTIAL
+  ) {
+    const sentLogs = invoice.followUpLogs.filter((l) => l.status === "SENT");
+    const sortedPayments = [...invoice.payments].sort(
+      (a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime(),
+    );
+    const firstPayment = sortedPayments[0];
+
+    if (firstPayment) {
+      const paidAt = new Date(firstPayment.paidAt);
+      const windowStart = new Date(paidAt.getTime() - RECOVERY_WINDOW_MS);
+
+      for (let i = 0; i < sentLogs.length; i++) {
+        const log = sentLogs[i];
+        if (!log) continue;
+        const logDate = new Date(log.sentAt);
+        if (logDate >= windowStart && logDate <= paidAt) {
+          followUpAttribution = {
+            followUpNumber: i + 1,
+            channel: log.channel,
+            template: log.template ?? null,
+            sentAt: log.sentAt.toISOString(),
+          };
+          break;
+        }
+      }
+    }
+  }
+
+  return { ...invoice, followUpAttribution };
+};
 
 export const updateInvoice = async (
   userId: string,

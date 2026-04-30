@@ -1,3 +1,4 @@
+// frontend/src/lib/api.ts
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
@@ -59,8 +60,16 @@ export interface Payment {
 export interface FollowUpLog {
   id: string;
   channel: string;
+  template?: string | null;
   message: string;
   status: string;
+  sentAt: string;
+}
+
+export interface FollowUpAttribution {
+  followUpNumber: number;
+  channel: string;
+  template: string | null;
   sentAt: string;
 }
 
@@ -129,6 +138,7 @@ export interface Invoice {
   payments?: Payment[];
   followUpLogs?: FollowUpLog[];
   followUpSchedules?: Array<{ id: string; status: string }>;
+  followUpAttribution?: FollowUpAttribution | null;
 }
 
 export interface DashboardStats {
@@ -136,6 +146,8 @@ export interface DashboardStats {
     totalInvoices: number;
     totalRevenue: number;
     outstandingAmount: number;
+    totalRecovered: number;
+    unprotectedOutstanding: number;
     statusBreakdown: {
       draft: number;
       pending: number;
