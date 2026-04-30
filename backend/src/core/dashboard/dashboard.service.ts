@@ -1,5 +1,5 @@
 import prisma from "../../config/db.config";
-import { InvoiceStatus } from "../../generated/prisma/client";
+import { InvoiceStatus, FollowUpStatus } from "../../generated/prisma/client";
 
 const RECOVERY_WINDOW_MS = 48 * 60 * 60 * 1000;
 
@@ -111,7 +111,7 @@ const getRecoveryStats = async (
       prisma.followUpSchedule.findMany({
         where: {
           invoice: { userId },
-          status: { in: ["PENDING", "PAUSED"] },
+          status: { in: [FollowUpStatus.PENDING, FollowUpStatus.PAUSED] },
         },
         select: { invoiceId: true },
         distinct: ["invoiceId"],
@@ -162,6 +162,199 @@ const getRecoveryStats = async (
   return { totalRecovered, unprotectedOutstanding };
 };
 
+const getPipelineStats = async (
+  userId: string,
+): Promise<{
+  pendingCollection: number;
+  atRiskAmount: number;
+  agentsActive: number;
+  needsAttention: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    title: string;
+    clientName: string;
+    clientId: string;
+    amount: number;
+    daysOverdue: number;
+    reason: "no_sequence" | "failed_send" | "sequence_paused";
+  }>;
+  nextFollowUp: {
+    invoiceId: string;
+    invoiceNumber: string;
+    title: string;
+    clientName: string;
+    template: string;
+    channel: string;
+    scheduledAt: string;
+  } | null;
+}> => {
+  const now = new Date();
+  const atRiskThresholdDays = 14;
+
+  const [
+    outstandingInvoices,
+    activeSequenceRows,
+    pendingSchedules,
+    failedLogs,
+  ] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        userId,
+        status: {
+          in: [
+            InvoiceStatus.PENDING,
+            InvoiceStatus.PARTIAL,
+            InvoiceStatus.OVERDUE,
+          ],
+        },
+      },
+      include: {
+        client: { select: { id: true, name: true } },
+        payments: { select: { amount: true } },
+      },
+    }),
+    prisma.followUpSchedule.findMany({
+      where: {
+        invoice: { userId },
+        status: { in: [FollowUpStatus.PENDING, FollowUpStatus.PAUSED] },
+      },
+      select: { invoiceId: true, status: true },
+      distinct: ["invoiceId"],
+    }),
+    prisma.followUpSchedule.findMany({
+      where: {
+        invoice: { userId },
+        status: FollowUpStatus.PENDING,
+        scheduledAt: { gt: now },
+      },
+      include: {
+        invoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            title: true,
+            client: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { scheduledAt: "asc" },
+      take: 1,
+    }),
+    prisma.followUpLog.findMany({
+      where: {
+        invoice: { userId },
+        status: "FAILED",
+      },
+      select: { invoiceId: true },
+      distinct: ["invoiceId"],
+    }),
+  ]);
+
+  const activeSequenceByInvoice = new Map(
+    activeSequenceRows.map((r) => [r.invoiceId, r.status]),
+  );
+  const failedInvoiceIds = new Set(failedLogs.map((l) => l.invoiceId));
+
+  let pendingCollection = 0;
+  let atRiskAmount = 0;
+  const needsAttention: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    title: string;
+    clientName: string;
+    clientId: string;
+    amount: number;
+    daysOverdue: number;
+    reason: "no_sequence" | "failed_send" | "sequence_paused";
+  }> = [];
+
+  for (const inv of outstandingInvoices) {
+    const paid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
+    const outstanding = Number(inv.total) - paid;
+    if (outstanding <= 0) continue;
+
+    pendingCollection += outstanding;
+
+    const daysOverdue =
+      inv.status === InvoiceStatus.OVERDUE
+        ? Math.round(
+            (now.getTime() - new Date(inv.dueDate).getTime()) /
+              (1000 * 60 * 60 * 24),
+          )
+        : 0;
+
+    if (daysOverdue >= atRiskThresholdDays) {
+      atRiskAmount += outstanding;
+    }
+
+    const sequenceStatus = activeSequenceByInvoice.get(inv.id);
+    const hasFailedSend =
+      failedInvoiceIds.has(inv.id) && sequenceStatus === undefined;
+
+    if (sequenceStatus === undefined && !hasFailedSend) {
+      needsAttention.push({
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        title: inv.title,
+        clientName: inv.client.name,
+        clientId: inv.client.id,
+        amount: outstanding,
+        daysOverdue,
+        reason: "no_sequence",
+      });
+    } else if (hasFailedSend) {
+      needsAttention.push({
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        title: inv.title,
+        clientName: inv.client.name,
+        clientId: inv.client.id,
+        amount: outstanding,
+        daysOverdue,
+        reason: "failed_send",
+      });
+    } else if (sequenceStatus === FollowUpStatus.PAUSED) {
+      needsAttention.push({
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        title: inv.title,
+        clientName: inv.client.name,
+        clientId: inv.client.id,
+        amount: outstanding,
+        daysOverdue,
+        reason: "sequence_paused",
+      });
+    }
+  }
+
+  needsAttention.sort((a, b) => b.amount - a.amount);
+
+  const agentsActive = activeSequenceRows.filter(
+    (r) => r.status === FollowUpStatus.PENDING,
+  ).length;
+
+  const nextSchedule = pendingSchedules[0];
+  const nextFollowUp = nextSchedule
+    ? {
+        invoiceId: nextSchedule.invoice.id,
+        invoiceNumber: nextSchedule.invoice.invoiceNumber,
+        title: nextSchedule.invoice.title,
+        clientName: nextSchedule.invoice.client.name,
+        template: nextSchedule.template,
+        channel: nextSchedule.channel,
+        scheduledAt: nextSchedule.scheduledAt.toISOString(),
+      }
+    : null;
+
+  return {
+    pendingCollection,
+    atRiskAmount,
+    agentsActive,
+    needsAttention: needsAttention.slice(0, 5),
+    nextFollowUp,
+  };
+};
+
 export const getDashboardStats = async (userId: string) => {
   const [
     totalInvoices,
@@ -172,6 +365,7 @@ export const getDashboardStats = async (userId: string) => {
     monthlyRevenue,
     topOverdueClients,
     recoveryStats,
+    pipelineStats,
   ] = await Promise.all([
     prisma.invoice.count({ where: { userId } }),
 
@@ -204,12 +398,22 @@ export const getDashboardStats = async (userId: string) => {
       where: { userId },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { client: { select: { name: true } } },
+      include: {
+        client: { select: { name: true } },
+        followUpSchedules: {
+          where: {
+            status: { in: [FollowUpStatus.PENDING, FollowUpStatus.PAUSED] },
+          },
+          select: { id: true, status: true },
+          take: 1,
+        },
+      },
     }),
 
     getMonthlyRevenue(userId),
     getTopOverdueClients(userId),
     getRecoveryStats(userId),
+    getPipelineStats(userId),
   ]);
 
   const statusMap = statusCounts.reduce(
@@ -227,6 +431,9 @@ export const getDashboardStats = async (userId: string) => {
       outstandingAmount: Number(outstanding._sum.total ?? 0),
       totalRecovered: recoveryStats.totalRecovered,
       unprotectedOutstanding: recoveryStats.unprotectedOutstanding,
+      pendingCollection: pipelineStats.pendingCollection,
+      atRiskAmount: pipelineStats.atRiskAmount,
+      agentsActive: pipelineStats.agentsActive,
       statusBreakdown: {
         draft: statusMap["DRAFT"] ?? 0,
         pending: statusMap["PENDING"] ?? 0,
@@ -239,5 +446,7 @@ export const getDashboardStats = async (userId: string) => {
     recentInvoices,
     monthlyRevenue,
     topOverdueClients,
+    needsAttention: pipelineStats.needsAttention,
+    nextFollowUp: pipelineStats.nextFollowUp,
   };
 };
