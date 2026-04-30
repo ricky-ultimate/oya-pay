@@ -1,15 +1,88 @@
+// frontend/src/app/(app)/clients/[id]/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { api, Client, InvoiceStatus } from "@/lib/api";
+import { api, Client, ClientStats, InvoiceStatus } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ReliabilityBadge } from "@/components/ui/reliability-badge";
 
 function formatNaira(amount: number): string {
   return `₦${Number(amount).toLocaleString("en-NG")}`;
+}
+
+function StatTile({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+        {label}
+      </p>
+      <p className="text-lg font-bold text-neutral-900 tabular-nums">{value}</p>
+      {sub && <p className="text-xs text-neutral-400">{sub}</p>}
+    </div>
+  );
+}
+
+function PaymentIntelligencePanel({ stats }: { stats: ClientStats }) {
+  const avgLabel =
+    stats.avgDaysToPayment === null
+      ? "No paid invoices yet"
+      : stats.avgDaysToPayment <= 0
+        ? `${Math.abs(stats.avgDaysToPayment)} days early on average`
+        : `${stats.avgDaysToPayment} days after due date on average`;
+
+  return (
+    <div className="bg-white rounded-xl border border-neutral-200 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
+          Payment Intelligence
+        </h2>
+        <ReliabilityBadge score={stats.reliabilityScore} />
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        <StatTile
+          label="Invoices"
+          value={String(stats.totalInvoices)}
+          sub="total"
+        />
+        <StatTile
+          label="Paid"
+          value={String(stats.paidInvoices)}
+          sub={
+            stats.totalInvoices > 0
+              ? `${Math.round((stats.paidInvoices / stats.totalInvoices) * 100)}%`
+              : undefined
+          }
+        />
+        <StatTile
+          label="Overdue"
+          value={String(stats.overdueInvoices)}
+          sub="currently"
+        />
+        <StatTile
+          label="Times chased"
+          value={String(stats.totalChases)}
+          sub="follow-ups sent"
+        />
+      </div>
+
+      <div className="bg-neutral-50 rounded-lg px-4 py-3 text-sm text-neutral-700">
+        {avgLabel}
+      </div>
+    </div>
+  );
 }
 
 export default function ClientDetailPage() {
@@ -19,6 +92,13 @@ export default function ClientDetailPage() {
   const { data: client, isLoading } = useQuery<Client>({
     queryKey: ["client", id],
     queryFn: () => api.getClient(id),
+  });
+
+  const { data: stats } = useQuery<ClientStats>({
+    queryKey: ["client-stats", id],
+    queryFn: () => api.getClientStats(id),
+    enabled: !!client,
+    staleTime: 120_000,
   });
 
   if (isLoading) {
@@ -59,9 +139,14 @@ export default function ClientDetailPage() {
             {client.name[0]?.toUpperCase()}
           </div>
           <div>
-            <h1 className="text-xl font-bold text-neutral-900">
-              {client.name}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-neutral-900">
+                {client.name}
+              </h1>
+              {stats && stats.reliabilityScore !== "no_data" && (
+                <ReliabilityBadge score={stats.reliabilityScore} />
+              )}
+            </div>
             <p className="text-sm text-neutral-500">{client.email}</p>
           </div>
         </div>
@@ -102,6 +187,8 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      {stats && <PaymentIntelligencePanel stats={stats} />}
 
       <div className="flex gap-3">
         <Link

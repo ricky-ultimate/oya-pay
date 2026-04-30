@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Modal, ConfirmModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ReliabilityBadge } from "@/components/ui/reliability-badge";
 import { useToast } from "@/components/ui/toast";
 
 interface ClientFormData {
@@ -193,7 +194,7 @@ export default function ClientsPage() {
                     {client.name[0]?.toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium text-neutral-900 truncate">
                         {client.name}
                       </p>
@@ -209,6 +210,13 @@ export default function ClientsPage() {
                           WA
                         </span>
                       )}
+                      {client.reliabilityScore &&
+                        client.reliabilityScore !== "no_data" && (
+                          <ReliabilityBadge
+                            score={client.reliabilityScore}
+                            className="hidden sm:inline-flex"
+                          />
+                        )}
                     </div>
                     <p className="text-xs text-neutral-500 truncate">
                       {client.email}

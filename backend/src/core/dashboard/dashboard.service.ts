@@ -22,6 +22,77 @@ const getMonthlyRevenue = async (userId: string) => {
     .sort((a, b) => a.month.localeCompare(b.month));
 };
 
+const getTopOverdueClients = async (userId: string) => {
+  const overdueInvoices = await prisma.invoice.findMany({
+    where: {
+      userId,
+      status: {
+        in: [
+          InvoiceStatus.OVERDUE,
+          InvoiceStatus.PENDING,
+          InvoiceStatus.PARTIAL,
+        ],
+      },
+    },
+    include: {
+      client: { select: { id: true, name: true, email: true, phone: true } },
+      payments: { select: { amount: true } },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+
+  const clientMap = new Map<
+    string,
+    {
+      clientId: string;
+      name: string;
+      email: string;
+      phone: string | null;
+      totalOutstanding: number;
+      invoiceCount: number;
+      oldestDueDays: number;
+      mostOverdueInvoiceId: string;
+    }
+  >();
+
+  const now = new Date();
+
+  for (const inv of overdueInvoices) {
+    const paid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
+    const outstanding = Number(inv.total) - paid;
+    if (outstanding <= 0) continue;
+
+    const dueDays = Math.round(
+      (now.getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    const existing = clientMap.get(inv.clientId);
+    if (existing) {
+      existing.totalOutstanding += outstanding;
+      existing.invoiceCount += 1;
+      if (dueDays > existing.oldestDueDays) {
+        existing.oldestDueDays = dueDays;
+        existing.mostOverdueInvoiceId = inv.id;
+      }
+    } else {
+      clientMap.set(inv.clientId, {
+        clientId: inv.clientId,
+        name: inv.client.name,
+        email: inv.client.email,
+        phone: inv.client.phone,
+        totalOutstanding: outstanding,
+        invoiceCount: 1,
+        oldestDueDays: Math.max(dueDays, 0),
+        mostOverdueInvoiceId: inv.id,
+      });
+    }
+  }
+
+  return Array.from(clientMap.values())
+    .sort((a, b) => b.totalOutstanding - a.totalOutstanding)
+    .slice(0, 5);
+};
+
 export const getDashboardStats = async (userId: string) => {
   const [
     totalInvoices,
@@ -30,6 +101,7 @@ export const getDashboardStats = async (userId: string) => {
     outstanding,
     recentInvoices,
     monthlyRevenue,
+    topOverdueClients,
   ] = await Promise.all([
     prisma.invoice.count({ where: { userId } }),
 
@@ -66,6 +138,7 @@ export const getDashboardStats = async (userId: string) => {
     }),
 
     getMonthlyRevenue(userId),
+    getTopOverdueClients(userId),
   ]);
 
   const statusMap = statusCounts.reduce(
@@ -92,5 +165,6 @@ export const getDashboardStats = async (userId: string) => {
     },
     recentInvoices,
     monthlyRevenue,
+    topOverdueClients,
   };
 };
