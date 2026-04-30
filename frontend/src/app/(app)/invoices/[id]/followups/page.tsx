@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { WhatsAppMockup } from "@/components/ui/whatsapp-mockup";
 import { EscalateModal } from "@/components/invoices/escalate-modal";
 import { MessagePreviewButton } from "@/components/invoices/message-preview";
+import { PreviewAllPanel } from "@/components/invoices/preview-all-panel";
 import { useToast } from "@/components/ui/toast";
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -301,6 +302,7 @@ export default function FollowUpsPage() {
   const { toast } = useToast();
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [escalateModal, setEscalateModal] = useState(false);
+  const [previewAllOpen, setPreviewAllOpen] = useState(false);
 
   const { data: invoice } = useQuery<Invoice>({
     queryKey: ["invoice", id],
@@ -359,7 +361,8 @@ export default function FollowUpsPage() {
     (s) => s.status !== "PENDING" && s.status !== "PAUSED",
   );
 
-  const hasActiveSequence = pending.length > 0 || paused.length > 0;
+  const activeSchedules = [...pending, ...paused];
+  const hasActiveSequence = activeSchedules.length > 0;
   const isSequencePaused = paused.length > 0 && pending.length === 0;
   const hasPhone = !!invoice?.client?.phone;
   const canEscalate =
@@ -476,30 +479,74 @@ export default function FollowUpsPage() {
         <>
           <div className="bg-white rounded-xl border border-neutral-200">
             <div className="px-5 py-3.5 border-b border-neutral-200 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">
-                Scheduled
-              </h2>
-              <span className="text-xs text-neutral-400">
-                {pending.length + paused.length} active
-              </span>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-neutral-900">
+                  Scheduled
+                </h2>
+                <span className="text-xs text-neutral-400">
+                  {activeSchedules.length} active
+                </span>
+              </div>
+              {activeSchedules.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewAllOpen((v) => !v)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-primary-600 transition-colors"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                  {previewAllOpen ? "Hide previews" : "Preview all messages"}
+                </button>
+              )}
             </div>
-            {pending.length === 0 && paused.length === 0 ? (
+
+            {activeSchedules.length === 0 ? (
               <div className="px-5 py-8 text-center text-sm text-neutral-500">
                 No pending follow-ups. Send the invoice to schedule automatic
                 reminders.
               </div>
             ) : (
-              <div className="divide-y divide-neutral-100">
-                {[...pending, ...paused].map((schedule) => (
-                  <ScheduleRow
-                    key={schedule.id}
-                    invoiceId={id}
-                    schedule={schedule}
-                    onCancel={() => setCancelTarget(schedule.id)}
-                    onSent={invalidateAll}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="divide-y divide-neutral-100">
+                  {activeSchedules.map((schedule) => (
+                    <ScheduleRow
+                      key={schedule.id}
+                      invoiceId={id}
+                      schedule={schedule}
+                      onCancel={() => setCancelTarget(schedule.id)}
+                      onSent={invalidateAll}
+                    />
+                  ))}
+                </div>
+
+                {previewAllOpen && (
+                  <div className="border-t border-neutral-200 p-5">
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-4">
+                      All scheduled message previews
+                    </p>
+                    <PreviewAllPanel
+                      invoiceId={id}
+                      schedules={activeSchedules}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
 
