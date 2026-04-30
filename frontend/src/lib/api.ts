@@ -58,6 +58,31 @@ export interface FollowUpLog {
   sentAt: string;
 }
 
+export interface ClientStats {
+  avgDaysToPayment: number | null;
+  avgDaysLate: number | null;
+  reliabilityScore:
+    | "on_time"
+    | "sometimes_late"
+    | "consistently_late"
+    | "no_data";
+  totalInvoices: number;
+  paidInvoices: number;
+  overdueInvoices: number;
+  totalChases: number;
+}
+
+export interface OverdueClientEntry {
+  clientId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  totalOutstanding: number;
+  invoiceCount: number;
+  oldestDueDays: number;
+  mostOverdueInvoiceId: string;
+}
+
 export type InvoiceStatus =
   | "DRAFT"
   | "PENDING"
@@ -116,6 +141,7 @@ export interface DashboardStats {
   };
   recentInvoices: (Invoice & { client: { name: string } })[];
   monthlyRevenue: { month: string; revenue: number }[];
+  topOverdueClients: OverdueClientEntry[];
 }
 
 export interface CreateClientInput {
@@ -437,6 +463,13 @@ class ApiClient {
   async getClient(id: string): Promise<Client> {
     const response = await this.client.get<ApiResponse<Client>>(
       `/api/clients/${id}`,
+    );
+    return response.data.data!;
+  }
+
+  async getClientStats(id: string): Promise<ClientStats> {
+    const response = await this.client.get<ApiResponse<ClientStats>>(
+      `/api/clients/${id}/stats`,
     );
     return response.data.data!;
   }
