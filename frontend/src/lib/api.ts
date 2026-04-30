@@ -262,6 +262,39 @@ export interface FollowUpPreviewResponse {
   channel: string;
 }
 
+export interface TemplateAnalytics {
+  template: string;
+  sentCount: number;
+  uniqueInvoicesSent: number;
+  conversions: number;
+  conversionRate: number;
+}
+
+export interface ChannelAnalytics {
+  channel: "EMAIL" | "WHATSAPP";
+  sentCount: number;
+  openCount: number;
+  clickCount: number;
+  conversions: number;
+  conversionRate: number;
+}
+
+export interface MonthlyTrendPoint {
+  month: string;
+  followUpsSent: number;
+  paymentsRecovered: number;
+}
+
+export interface FollowUpAnalytics {
+  recoveredThisMonth: number;
+  totalRecovered: number;
+  totalFollowUpsSent: number;
+  templateStats: TemplateAnalytics[];
+  channelStats: ChannelAnalytics[];
+  monthlyTrend: MonthlyTrendPoint[];
+  bestPerformingTemplate: string | null;
+}
+
 export const DEFAULT_FOLLOWUP_STEPS: FollowUpStepConfig[] = [
   {
     template: "PRE_DUE_REMINDER",
@@ -665,6 +698,13 @@ class ApiClient {
     await this.client.delete(
       `/api/invoices/${invoiceId}/followups/${scheduleId}`,
     );
+  }
+
+  async getFollowUpAnalytics(): Promise<FollowUpAnalytics> {
+    const response = await this.client.get<ApiResponse<FollowUpAnalytics>>(
+      "/api/analytics/followups",
+    );
+    return response.data.data!;
   }
 }
 
