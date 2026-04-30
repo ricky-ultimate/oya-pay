@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, DashboardStats, InvoiceStatus } from "@/lib/api";
@@ -15,9 +15,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useToast } from "@/components/ui/toast";
 
 function formatNaira(amount: number): string {
-  return `₦${amount.toLocaleString("en-NG")}`;
+  return `\u20a6${amount.toLocaleString("en-NG")}`;
 }
 
 function formatMonth(month: string): string {
@@ -26,50 +27,70 @@ function formatMonth(month: string): string {
   return date.toLocaleDateString("en-NG", { month: "short" });
 }
 
-interface StatCardProps {
+const TEMPLATE_LABELS: Record<string, string> = {
+  PRE_DUE_REMINDER: "Pre-due Reminder",
+  FIRST_OVERDUE: "First Overdue Notice",
+  SECOND_OVERDUE: "Second Overdue Notice",
+  FINAL_NOTICE: "Final Notice",
+  INVOICE_SENT: "Invoice Sent",
+};
+
+const NEEDS_ATTENTION_LABELS: Record<string, string> = {
+  no_sequence: "No reminders active",
+  failed_send: "Last send failed",
+  sequence_paused: "Sequence paused",
+};
+
+interface PipelineCardProps {
   label: string;
   value: string;
   subtext?: string;
-  accent?: "default" | "success" | "warning";
+  variant?: "default" | "success" | "warning" | "error" | "neutral";
+  size?: "normal" | "large";
 }
 
-function StatCard({
+function PipelineCard({
   label,
   value,
   subtext,
-  accent = "default",
-}: StatCardProps) {
-  const containerClass =
-    accent === "success"
-      ? "bg-success-50 border-success-200"
-      : accent === "warning"
-        ? "bg-warning-50 border-warning-200"
-        : "bg-white border-neutral-200";
+  variant = "default",
+  size = "normal",
+}: PipelineCardProps) {
+  const containerClass = {
+    default: "bg-white border-neutral-200",
+    success: "bg-success-50 border-success-200",
+    warning: "bg-warning-50 border-warning-200",
+    error: "bg-error-50 border-error-200",
+    neutral: "bg-neutral-50 border-neutral-200",
+  }[variant];
 
-  const labelClass =
-    accent === "success"
-      ? "text-success-700"
-      : accent === "warning"
-        ? "text-warning-700"
-        : "text-neutral-500";
+  const labelClass = {
+    default: "text-neutral-500",
+    success: "text-success-700",
+    warning: "text-warning-700",
+    error: "text-error-700",
+    neutral: "text-neutral-500",
+  }[variant];
 
-  const valueClass =
-    accent === "success"
-      ? "text-success-800"
-      : accent === "warning"
-        ? "text-warning-800"
-        : "text-neutral-900";
+  const valueClass = {
+    default: "text-neutral-900",
+    success: "text-success-800",
+    warning: "text-warning-800",
+    error: "text-error-800",
+    neutral: "text-neutral-700",
+  }[variant];
 
-  const subtextClass =
-    accent === "success"
-      ? "text-success-600"
-      : accent === "warning"
-        ? "text-warning-600"
-        : "text-neutral-400";
+  const subtextClass = {
+    default: "text-neutral-400",
+    success: "text-success-600",
+    warning: "text-warning-600",
+    error: "text-error-600",
+    neutral: "text-neutral-400",
+  }[variant];
 
   return (
     <div
-      className={`rounded-xl border p-5 h-24 flex flex-col justify-between ${containerClass}`}
+      className={`rounded-xl border p-5 flex flex-col justify-between ${containerClass} ${size === "large" ? "h-28" : "h-24"}`}
     >
       <p
         className={`text-xs font-medium uppercase tracking-wide ${labelClass}`}
@@ -77,7 +98,9 @@ function StatCard({
         {label}
       </p>
       <div>
-        <p className={`text-2xl font-bold tabular-nums ${valueClass}`}>
+        <p
+          className={`font-bold tabular-nums ${valueClass} ${size === "large" ? "text-3xl" : "text-2xl"}`}
+        >
           {value}
         </p>
         {subtext && (
@@ -96,18 +119,98 @@ function DashboardSkeleton() {
           <Skeleton key={i} className="h-24 rounded-xl" />
         ))}
       </div>
-      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-16 rounded-xl" />
       <Skeleton className="h-48 rounded-xl" />
+      <Skeleton className="h-64 rounded-xl" />
       <Skeleton className="h-48 rounded-xl" />
     </div>
   );
 }
 
-function OverdueClientRow({
+interface NeedsAttentionEntry {
+  invoiceId: string;
+  invoiceNumber: string;
+  title: string;
+  clientName: string;
+  clientId: string;
+  amount: number;
+  daysOverdue: number;
+  reason: "no_sequence" | "failed_send" | "sequence_paused";
+}
+
+interface NeedsAttentionRowProps {
+  entry: NeedsAttentionEntry;
+  onChaseNow: (invoiceId: string) => void;
+  isChasing: boolean;
+}
+
+function NeedsAttentionRow({
   entry,
-}: {
+  onChaseNow,
+  isChasing,
+}: NeedsAttentionRowProps) {
+  const router = useRouter();
+
+  return (
+    <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-neutral-50 transition-colors">
+      <div
+        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+        onClick={() => router.push(`/invoices/${entry.invoiceId}`)}
+      >
+        <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 text-sm font-semibold flex-shrink-0">
+          {entry.clientName[0]?.toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-neutral-900 truncate">
+            {entry.clientName}
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-neutral-500 truncate">{entry.title}</p>
+            <span className="text-xs bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+              {NEEDS_ATTENTION_LABELS[entry.reason]}
+            </span>
+            {entry.daysOverdue > 0 && (
+              <span className="text-xs text-error-600 font-medium flex-shrink-0">
+                {entry.daysOverdue}d overdue
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="text-right flex-shrink-0 mr-2">
+        <p className="text-sm font-semibold text-neutral-900 tabular-nums">
+          {formatNaira(entry.amount)}
+        </p>
+      </div>
+      <button
+        onClick={() => onChaseNow(entry.invoiceId)}
+        disabled={isChasing}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-medium hover:bg-primary-100 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13 10V3L4 14h7v7l9-11h-7z"
+          />
+        </svg>
+        Chase now
+      </button>
+    </div>
+  );
+}
+
+interface OverdueClientRowProps {
   entry: DashboardStats["topOverdueClients"][number];
-}) {
+}
+
+function OverdueClientRow({ entry }: OverdueClientRowProps) {
   const router = useRouter();
 
   return (
@@ -124,7 +227,8 @@ function OverdueClientRow({
             {entry.name}
           </p>
           <p className="text-xs text-neutral-500">
-            {entry.invoiceCount} invoice{entry.invoiceCount !== 1 ? "s" : ""} ·{" "}
+            {entry.invoiceCount} invoice{entry.invoiceCount !== 1 ? "s" : ""}{" "}
+            &middot;{" "}
             {entry.oldestDueDays > 0
               ? `${entry.oldestDueDays}d overdue`
               : "due soon"}
@@ -161,11 +265,120 @@ function OverdueClientRow({
   );
 }
 
+interface RecentInvoiceRowProps {
+  invoice: DashboardStats["recentInvoices"][number];
+  onChaseNow: (invoiceId: string) => void;
+  isChasing: boolean;
+}
+
+function RecentInvoiceRow({
+  invoice,
+  onChaseNow,
+  isChasing,
+}: RecentInvoiceRowProps) {
+  const isActionable =
+    invoice.status !== "PAID" &&
+    invoice.status !== "CANCELLED" &&
+    invoice.status !== "DRAFT";
+  const hasActiveSequence = (invoice.followUpSchedules?.length ?? 0) > 0;
+
+  return (
+    <div className="flex items-center justify-between px-5 py-3.5 hover:bg-neutral-50 transition-colors group">
+      <Link
+        href={`/invoices/${invoice.id}`}
+        className="flex items-center gap-3 min-w-0 flex-1"
+      >
+        <StatusBadge status={invoice.status as InvoiceStatus} />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-neutral-900">
+            {invoice.title}
+          </p>
+          <p className="text-xs text-neutral-500">
+            {invoice.client.name} &middot; {invoice.invoiceNumber}
+          </p>
+        </div>
+      </Link>
+      <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+        <div className="text-right hidden sm:block">
+          <p className="text-sm font-semibold text-neutral-900 tabular-nums">
+            {formatNaira(Number(invoice.total))}
+          </p>
+          <p className="text-xs text-neutral-400">
+            Due{" "}
+            {new Date(invoice.dueDate).toLocaleDateString("en-NG", {
+              day: "numeric",
+              month: "short",
+            })}
+          </p>
+        </div>
+        {isActionable && !hasActiveSequence && (
+          <button
+            onClick={() => onChaseNow(invoice.id)}
+            disabled={isChasing}
+            className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-medium hover:bg-primary-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            Chase
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
   const { data, isLoading } = useQuery<DashboardStats>({
     queryKey: ["dashboard"],
     queryFn: () => api.getDashboardStats(),
   });
+
+  const sendInvoiceMutation = useMutation({
+    mutationFn: (invoiceId: string) =>
+      api.sendInvoice(invoiceId, ["EMAIL"], undefined),
+    onSuccess: (_, invoiceId) => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["invoice", invoiceId] });
+      router.push(`/invoices/${invoiceId}/followups`);
+    },
+    onError: () => toast("Failed to activate follow-up sequence", "error"),
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: (invoiceId: string) => api.resumeFollowUps(invoiceId),
+    onSuccess: (_, invoiceId) => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["invoice", invoiceId] });
+      toast("Follow-up sequence resumed", "success");
+    },
+    onError: () => toast("Failed to resume follow-ups", "error"),
+  });
+
+  const handleChaseNow = (
+    invoiceId: string,
+    reason?: "no_sequence" | "failed_send" | "sequence_paused",
+  ) => {
+    if (reason === "sequence_paused") {
+      resumeMutation.mutate(invoiceId);
+    } else {
+      router.push(`/invoices/${invoiceId}/followups`);
+    }
+  };
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -173,8 +386,14 @@ export default function DashboardPage() {
   const recentInvoices = data?.recentInvoices ?? [];
   const monthlyRevenue = data?.monthlyRevenue ?? [];
   const topOverdueClients = data?.topOverdueClients ?? [];
+  const needsAttention = (data as any)?.needsAttention ?? [];
+  const nextFollowUp = (data as any)?.nextFollowUp ?? null;
   const totalRecovered = overview?.totalRecovered ?? 0;
-  const unprotectedOutstanding = overview?.unprotectedOutstanding ?? 0;
+  const agentsActive = (overview as any)?.agentsActive ?? 0;
+  const pendingCollection = (overview as any)?.pendingCollection ?? 0;
+  const atRiskAmount = (overview as any)?.atRiskAmount ?? 0;
+
+  const isChasing = sendInvoiceMutation.isPending || resumeMutation.isPending;
 
   return (
     <div className="flex flex-col gap-6">
@@ -193,23 +412,145 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Invoices"
-          value={String(overview?.totalInvoices ?? 0)}
+        <PipelineCard
+          label="Pending collection"
+          value={formatNaira(pendingCollection)}
+          subtext={`${(overview?.statusBreakdown.pending ?? 0) + (overview?.statusBreakdown.partial ?? 0) + (overview?.statusBreakdown.overdue ?? 0)} invoices outstanding`}
         />
-        <StatCard
-          label="Total Revenue"
-          value={formatNaira(overview?.totalRevenue ?? 0)}
+        <PipelineCard
+          label="At risk"
+          value={formatNaira(atRiskAmount)}
+          subtext="Overdue more than 14 days"
+          variant={atRiskAmount > 0 ? "error" : "neutral"}
         />
-        <StatCard
-          label="Outstanding"
-          value={formatNaira(overview?.outstandingAmount ?? 0)}
+        <PipelineCard
+          label="Agents active"
+          value={String(agentsActive)}
+          subtext="Invoices with live sequences"
+          variant={agentsActive > 0 ? "success" : "neutral"}
         />
-        <StatCard
-          label="Overdue"
-          value={String(overview?.statusBreakdown.overdue ?? 0)}
+        <PipelineCard
+          label="Recovered"
+          value={formatNaira(totalRecovered)}
+          subtext="Via automated reminders"
+          variant={totalRecovered > 0 ? "success" : "neutral"}
         />
       </div>
+
+      {nextFollowUp && (
+        <Link
+          href={`/invoices/${nextFollowUp.invoiceId}/followups`}
+          className="bg-primary-50 border border-primary-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4 hover:bg-primary-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+              <svg
+                className="w-4 h-4 text-primary-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-primary-900">
+                Next:{" "}
+                {TEMPLATE_LABELS[nextFollowUp.template] ??
+                  nextFollowUp.template}{" "}
+                to {nextFollowUp.clientName}
+              </p>
+              <p className="text-xs text-primary-700 mt-0.5">
+                {nextFollowUp.invoiceNumber} &middot; {nextFollowUp.channel}{" "}
+                &middot;{" "}
+                {new Date(nextFollowUp.scheduledAt).toLocaleDateString(
+                  "en-NG",
+                  {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  },
+                )}
+              </p>
+            </div>
+          </div>
+          <svg
+            className="w-4 h-4 text-primary-500 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </Link>
+      )}
+
+      {needsAttention.length > 0 && (
+        <div className="bg-white rounded-xl border border-neutral-200">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-neutral-900">
+                Needs attention
+              </h2>
+              <span className="inline-flex items-center h-5 px-2 rounded-full bg-error-50 text-error-700 text-xs font-medium">
+                {needsAttention.length}
+              </span>
+            </div>
+            <Link
+              href="/invoices"
+              className="text-sm text-primary-600 font-medium hover:underline"
+            >
+              View all
+            </Link>
+          </div>
+          <div className="divide-y divide-neutral-100">
+            {needsAttention.map((entry: NeedsAttentionEntry) => (
+              <NeedsAttentionRow
+                key={entry.invoiceId}
+                entry={entry}
+                onChaseNow={(id) => handleChaseNow(id, entry.reason)}
+                isChasing={isChasing}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {topOverdueClients.length > 0 && (
+        <div className="bg-white rounded-xl border border-neutral-200">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-neutral-900">
+                Overdue clients
+              </h2>
+              <span className="inline-flex items-center h-5 px-2 rounded-full bg-error-50 text-error-700 text-xs font-medium">
+                {topOverdueClients.length}
+              </span>
+            </div>
+            <Link
+              href="/invoices?status=OVERDUE"
+              className="text-sm text-primary-600 font-medium hover:underline"
+            >
+              View all
+            </Link>
+          </div>
+          <div className="divide-y divide-neutral-100">
+            {topOverdueClients.map((entry) => (
+              <OverdueClientRow key={entry.clientId} entry={entry} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {totalRecovered > 0 && (
         <div className="bg-success-50 border border-success-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
@@ -244,71 +585,6 @@ export default function DashboardPage() {
           >
             View details
           </Link>
-        </div>
-      )}
-
-      {unprotectedOutstanding > 0 && (
-        <div className="bg-warning-50 border border-warning-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-warning-100 flex items-center justify-center flex-shrink-0">
-              <svg
-                className="w-5 h-5 text-warning-700"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-warning-900">
-                {formatNaira(unprotectedOutstanding)} outstanding with no active
-                follow-up
-              </p>
-              <p className="text-xs text-warning-700 mt-0.5">
-                These invoices have no scheduled reminders — they may go
-                uncollected
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/invoices?status=OVERDUE"
-            className="text-xs font-medium text-warning-700 hover:text-warning-900 flex-shrink-0 hover:underline"
-          >
-            Review
-          </Link>
-        </div>
-      )}
-
-      {topOverdueClients.length > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-neutral-900">
-                Needs attention
-              </h2>
-              <span className="inline-flex items-center h-5 px-2 rounded-full bg-error-50 text-error-700 text-xs font-medium">
-                {topOverdueClients.length} client
-                {topOverdueClients.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <Link
-              href="/invoices?status=OVERDUE"
-              className="text-sm text-primary-600 font-medium hover:underline"
-            >
-              View all
-            </Link>
-          </div>
-          <div className="divide-y divide-neutral-100">
-            {topOverdueClients.map((entry) => (
-              <OverdueClientRow key={entry.clientId} entry={entry} />
-            ))}
-          </div>
         </div>
       )}
 
@@ -348,7 +624,7 @@ export default function DashboardPage() {
                   tick={{ fontSize: 12, fill: "#6B7280" }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => `\u20a6${(v / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
                   formatter={(value) => [formatNaira(Number(value)), "Revenue"]}
@@ -396,35 +672,12 @@ export default function DashboardPage() {
         ) : (
           <div className="divide-y divide-neutral-100">
             {recentInvoices.map((invoice) => (
-              <Link
+              <RecentInvoiceRow
                 key={invoice.id}
-                href={`/invoices/${invoice.id}`}
-                className="flex items-center justify-between px-5 py-3.5 hover:bg-neutral-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={invoice.status as InvoiceStatus} />
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">
-                      {invoice.title}
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                      {invoice.client.name} · {invoice.invoiceNumber}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0 ml-4">
-                  <p className="text-sm font-semibold text-neutral-900 tabular-nums">
-                    {formatNaira(Number(invoice.total))}
-                  </p>
-                  <p className="text-xs text-neutral-400">
-                    Due{" "}
-                    {new Date(invoice.dueDate).toLocaleDateString("en-NG", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </p>
-                </div>
-              </Link>
+                invoice={invoice}
+                onChaseNow={(id) => handleChaseNow(id, "no_sequence")}
+                isChasing={isChasing}
+              />
             ))}
           </div>
         )}
