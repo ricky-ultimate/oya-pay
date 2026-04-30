@@ -16,6 +16,8 @@ import invoiceRoutes from "./core/invoices/invoices.routes";
 import paymentRoutes from "./core/payments/payments.routes";
 import dashboardRoutes from "./core/dashboard/dashboard.routes";
 import webhookRoutes from "./core/webhooks/webhooks.routes";
+import analyticsRoutes from "./core/analytics/analytics.routes";
+import trackingRoutes from "./core/tracking/tracking.routes";
 
 const requiredEnv: (keyof typeof ENV)[] = [
   "JWT_ACCESS_SECRET",
@@ -49,6 +51,8 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/webhooks", webhookRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/track", trackingRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
