@@ -14,7 +14,6 @@ import {
   ResponsiveContainer,
   BarChart,
   Legend,
-  Cell,
 } from "recharts";
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -182,12 +181,15 @@ function TemplatePerformanceChart({ data }: TemplateChartProps) {
                 borderRadius: 8,
                 border: "1px solid #E5E7EB",
               }}
-              formatter={(value: number, name: string) => [
-                value,
-                name === "Converted"
-                  ? `Converted (${chartData.find((d) => d.Converted === value)?.rate ?? 0}%)`
-                  : name,
-              ]}
+              formatter={(value, name) => {
+                const numValue = Number(value);
+                if (name === "Converted") {
+                  const rate =
+                    chartData.find((d) => d.Converted === numValue)?.rate ?? 0;
+                  return [`${numValue} (${rate}%)`, name];
+                }
+                return [numValue, name];
+              }}
             />
             <Legend
               wrapperStyle={{ fontSize: 12 }}
@@ -336,11 +338,13 @@ function MonthlyTrendChart({ data }: TrendChartProps) {
                 borderRadius: 8,
                 border: "1px solid #E5E7EB",
               }}
-              formatter={(value: number, name: string) =>
-                name === "paymentsRecovered"
-                  ? [`₦${Number(value).toLocaleString("en-NG")}`, "Recovered"]
-                  : [value, "Follow-ups Sent"]
-              }
+              formatter={(value, name) => {
+                const numValue = Number(value);
+                if (name === "paymentsRecovered") {
+                  return [`₦${numValue.toLocaleString("en-NG")}`, "Recovered"];
+                }
+                return [numValue, "Follow-ups Sent"];
+              }}
             />
             <Legend
               wrapperStyle={{ fontSize: 12 }}

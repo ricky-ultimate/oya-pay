@@ -131,7 +131,7 @@ export const getFollowUpAnalytics = async (
         (d) => d >= windowStart && d <= payment.paidAt,
       );
       if (hasFollowUp) {
-        total += payment.amount;
+        total += Number(payment.amount);
       }
     }
     return total;
@@ -209,9 +209,7 @@ export const getFollowUpAnalytics = async (
     channelGroups.set(key, group);
   }
 
-  const channelStats: ChannelAnalytics[] = (
-    ["EMAIL", "WHATSAPP"] as const
-  )
+  const channelStats: ChannelAnalytics[] = (["EMAIL", "WHATSAPP"] as const)
     .filter((c) => channelGroups.has(c))
     .map((c) => {
       const group = channelGroups.get(c)!;
@@ -274,7 +272,7 @@ export const getFollowUpAnalytics = async (
         (d) => d >= windowStart && d <= payment.paidAt,
       );
       if (hasFollowUp) {
-        paymentsRecovered += payment.amount;
+        paymentsRecovered += Number(payment.amount);
       }
     }
 
