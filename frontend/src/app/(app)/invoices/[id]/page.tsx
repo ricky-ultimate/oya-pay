@@ -9,6 +9,7 @@ import {
   Invoice,
   InvoiceStatus,
   FollowUpStepConfig,
+  FollowUpActivity,
   buildDefaultFollowUpSteps,
 } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { WhatsAppMockup } from "@/components/ui/whatsapp-mockup";
 import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
 import { EscalateModal } from "@/components/invoices/escalate-modal";
+import { InvoiceTimeline } from "@/components/invoices/invoice-timeline";
 import { useToast } from "@/components/ui/toast";
 
 function formatNaira(amount: number): string {
@@ -87,6 +89,13 @@ export default function InvoiceDetailPage() {
   const { data: invoice, isLoading } = useQuery<Invoice>({
     queryKey: ["invoice", id],
     queryFn: () => api.getInvoice(id),
+  });
+
+  const { data: activity } = useQuery<FollowUpActivity>({
+    queryKey: ["followups", id],
+    queryFn: () => api.getFollowUpActivity(id),
+    enabled: !!invoice,
+    staleTime: 30_000,
   });
 
   const hasPhone = !!invoice?.client?.phone;
@@ -187,6 +196,7 @@ export default function InvoiceDetailPage() {
       await api.sendInvoice(id, sendChannels, followUpSteps);
       queryClient.invalidateQueries({ queryKey: ["invoice", id] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["followups", id] });
       setConfirmedSteps(followUpSteps);
       setSendPhase("confirmed");
     } catch {
@@ -253,6 +263,9 @@ export default function InvoiceDetailPage() {
   const activeConfirmedSteps = confirmedSteps.filter(
     (s) => s.enabled && !isInPast(invoice.dueDate, s.offsetDays),
   );
+
+  const showTimeline =
+    !!invoice.sentAt || (activity?.schedules && activity.schedules.length > 0);
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-5">
@@ -338,6 +351,14 @@ export default function InvoiceDetailPage() {
           </p>
         </div>
       </div>
+
+      {showTimeline && (
+        <InvoiceTimeline
+          schedules={activity?.schedules ?? []}
+          logs={activity?.logs ?? []}
+          sentAt={invoice.sentAt}
+        />
+      )}
 
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
         <table className="w-full text-sm">
