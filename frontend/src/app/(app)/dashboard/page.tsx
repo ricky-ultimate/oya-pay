@@ -3,7 +3,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, DashboardStats, InvoiceStatus } from "@/lib/api";
+import { api } from "@/lib/api";
+import type {
+  DashboardStats,
+  InvoiceStatus,
+  NeedsAttentionEntry,
+} from "@/types";
 import { StatusBadge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -16,30 +21,11 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useToast } from "@/components/ui/toast";
-
-function formatNaira(amount: number): string {
-  return `\u20a6${amount.toLocaleString("en-NG")}`;
-}
-
-function formatMonth(month: string): string {
-  const [year, m] = month.split("-");
-  const date = new Date(Number(year), Number(m) - 1, 1);
-  return date.toLocaleDateString("en-NG", { month: "short" });
-}
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
-  INVOICE_SENT: "Invoice Sent",
-};
-
-const NEEDS_ATTENTION_LABELS: Record<string, string> = {
-  no_sequence: "No reminders active",
-  failed_send: "Last send failed",
-  sequence_paused: "Sequence paused",
-};
+import { formatNaira, formatMonth } from "@/utils/format";
+import {
+  TEMPLATE_LABELS,
+  NEEDS_ATTENTION_REASON_LABELS,
+} from "@/utils/constants";
 
 interface PipelineCardProps {
   label: string;
@@ -127,17 +113,6 @@ function DashboardSkeleton() {
   );
 }
 
-interface NeedsAttentionEntry {
-  invoiceId: string;
-  invoiceNumber: string;
-  title: string;
-  clientName: string;
-  clientId: string;
-  amount: number;
-  daysOverdue: number;
-  reason: "no_sequence" | "failed_send" | "sequence_paused";
-}
-
 interface NeedsAttentionRowProps {
   entry: NeedsAttentionEntry;
   onChaseNow: (invoiceId: string) => void;
@@ -167,7 +142,7 @@ function NeedsAttentionRow({
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-xs text-neutral-500 truncate">{entry.title}</p>
             <span className="text-xs bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
-              {NEEDS_ATTENTION_LABELS[entry.reason]}
+              {NEEDS_ATTENTION_REASON_LABELS[entry.reason]}
             </span>
             {entry.daysOverdue > 0 && (
               <span className="text-xs text-error-600 font-medium flex-shrink-0">
@@ -348,17 +323,6 @@ export default function DashboardPage() {
     queryFn: () => api.getDashboardStats(),
   });
 
-  const sendInvoiceMutation = useMutation({
-    mutationFn: (invoiceId: string) =>
-      api.sendInvoice(invoiceId, ["EMAIL"], undefined),
-    onSuccess: (_, invoiceId) => {
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["invoice", invoiceId] });
-      router.push(`/invoices/${invoiceId}/followups`);
-    },
-    onError: () => toast("Failed to activate follow-up sequence", "error"),
-  });
-
   const resumeMutation = useMutation({
     mutationFn: (invoiceId: string) => api.resumeFollowUps(invoiceId),
     onSuccess: (_, invoiceId) => {
@@ -371,7 +335,7 @@ export default function DashboardPage() {
 
   const handleChaseNow = (
     invoiceId: string,
-    reason?: "no_sequence" | "failed_send" | "sequence_paused",
+    reason?: NeedsAttentionEntry["reason"],
   ) => {
     if (reason === "sequence_paused") {
       resumeMutation.mutate(invoiceId);
@@ -386,14 +350,14 @@ export default function DashboardPage() {
   const recentInvoices = data?.recentInvoices ?? [];
   const monthlyRevenue = data?.monthlyRevenue ?? [];
   const topOverdueClients = data?.topOverdueClients ?? [];
-  const needsAttention = (data as any)?.needsAttention ?? [];
-  const nextFollowUp = (data as any)?.nextFollowUp ?? null;
+  const needsAttention = data?.needsAttention ?? [];
+  const nextFollowUp = data?.nextFollowUp ?? null;
   const totalRecovered = overview?.totalRecovered ?? 0;
-  const agentsActive = (overview as any)?.agentsActive ?? 0;
-  const pendingCollection = (overview as any)?.pendingCollection ?? 0;
-  const atRiskAmount = (overview as any)?.atRiskAmount ?? 0;
+  const agentsActive = overview?.agentsActive ?? 0;
+  const pendingCollection = overview?.pendingCollection ?? 0;
+  const atRiskAmount = overview?.atRiskAmount ?? 0;
 
-  const isChasing = sendInvoiceMutation.isPending || resumeMutation.isPending;
+  const isChasing = resumeMutation.isPending;
 
   return (
     <div className="flex flex-col gap-6">
@@ -514,7 +478,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-neutral-100">
-            {needsAttention.map((entry: NeedsAttentionEntry) => (
+            {needsAttention.map((entry) => (
               <NeedsAttentionRow
                 key={entry.invoiceId}
                 entry={entry}
@@ -624,7 +588,7 @@ export default function DashboardPage() {
                   tick={{ fontSize: 12, fill: "#6B7280" }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `\u20a6${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
                   formatter={(value) => [formatNaira(Number(value)), "Revenue"]}
