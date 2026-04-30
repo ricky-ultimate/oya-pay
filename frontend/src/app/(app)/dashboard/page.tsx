@@ -30,20 +30,58 @@ interface StatCardProps {
   label: string;
   value: string;
   subtext?: string;
+  accent?: "default" | "success" | "warning";
 }
 
-function StatCard({ label, value, subtext }: StatCardProps) {
+function StatCard({
+  label,
+  value,
+  subtext,
+  accent = "default",
+}: StatCardProps) {
+  const containerClass =
+    accent === "success"
+      ? "bg-success-50 border-success-200"
+      : accent === "warning"
+        ? "bg-warning-50 border-warning-200"
+        : "bg-white border-neutral-200";
+
+  const labelClass =
+    accent === "success"
+      ? "text-success-700"
+      : accent === "warning"
+        ? "text-warning-700"
+        : "text-neutral-500";
+
+  const valueClass =
+    accent === "success"
+      ? "text-success-800"
+      : accent === "warning"
+        ? "text-warning-800"
+        : "text-neutral-900";
+
+  const subtextClass =
+    accent === "success"
+      ? "text-success-600"
+      : accent === "warning"
+        ? "text-warning-600"
+        : "text-neutral-400";
+
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 p-5 h-24 flex flex-col justify-between">
-      <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+    <div
+      className={`rounded-xl border p-5 h-24 flex flex-col justify-between ${containerClass}`}
+    >
+      <p
+        className={`text-xs font-medium uppercase tracking-wide ${labelClass}`}
+      >
         {label}
       </p>
       <div>
-        <p className="text-2xl font-bold text-neutral-900 tabular-nums">
+        <p className={`text-2xl font-bold tabular-nums ${valueClass}`}>
           {value}
         </p>
         {subtext && (
-          <p className="text-xs text-neutral-400 mt-0.5">{subtext}</p>
+          <p className={`text-xs mt-0.5 ${subtextClass}`}>{subtext}</p>
         )}
       </div>
     </div>
@@ -135,6 +173,8 @@ export default function DashboardPage() {
   const recentInvoices = data?.recentInvoices ?? [];
   const monthlyRevenue = data?.monthlyRevenue ?? [];
   const topOverdueClients = data?.topOverdueClients ?? [];
+  const totalRecovered = overview?.totalRecovered ?? 0;
+  const unprotectedOutstanding = overview?.unprotectedOutstanding ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -170,6 +210,80 @@ export default function DashboardPage() {
           value={String(overview?.statusBreakdown.overdue ?? 0)}
         />
       </div>
+
+      {totalRecovered > 0 && (
+        <div className="bg-success-50 border border-success-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-success-100 flex items-center justify-center flex-shrink-0">
+              <svg
+                className="w-5 h-5 text-success-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-success-900">
+                {formatNaira(totalRecovered)} recovered via automated follow-ups
+              </p>
+              <p className="text-xs text-success-700 mt-0.5">
+                Payments received within 48 hours of a reminder
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/analytics"
+            className="text-xs font-medium text-success-700 hover:text-success-900 flex-shrink-0 hover:underline"
+          >
+            View details
+          </Link>
+        </div>
+      )}
+
+      {unprotectedOutstanding > 0 && (
+        <div className="bg-warning-50 border border-warning-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-warning-100 flex items-center justify-center flex-shrink-0">
+              <svg
+                className="w-5 h-5 text-warning-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-warning-900">
+                {formatNaira(unprotectedOutstanding)} outstanding with no active
+                follow-up
+              </p>
+              <p className="text-xs text-warning-700 mt-0.5">
+                These invoices have no scheduled reminders — they may go
+                uncollected
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/invoices?status=OVERDUE"
+            className="text-xs font-medium text-warning-700 hover:text-warning-900 flex-shrink-0 hover:underline"
+          >
+            Review
+          </Link>
+        </div>
+      )}
 
       {topOverdueClients.length > 0 && (
         <div className="bg-white rounded-xl border border-neutral-200">
