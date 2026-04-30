@@ -3,7 +3,8 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, Client, CreateClientInput } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Client, CreateClientInput } from "@/types";
 import { validatePhoneForWhatsApp } from "@/lib/phone.utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,7 @@
 "use client";
 
-import { FollowUpStepConfig } from "@/lib/api";
+import type { FollowUpStepConfig } from "@/types";
+import { computeScheduledDate, isInPast } from "@/utils/invoice";
 
 const TEMPLATE_LABELS: Record<string, string> = {
   PRE_DUE_REMINDER: "Pre-due Reminder",
@@ -8,23 +9,6 @@ const TEMPLATE_LABELS: Record<string, string> = {
   SECOND_OVERDUE: "Second Overdue Notice",
   FINAL_NOTICE: "Final Notice",
 };
-
-function computeScheduledDate(dueDate: string, offsetDays: number): string {
-  const due = new Date(dueDate);
-  const d = new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000);
-  return d.toLocaleDateString("en-NG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function isInPast(dueDate: string, offsetDays: number): boolean {
-  const due = new Date(dueDate);
-  return (
-    new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000) <= new Date()
-  );
-}
 
 interface FollowUpTimelineProps {
   dueDate: string;

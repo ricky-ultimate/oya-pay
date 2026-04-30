@@ -2,7 +2,8 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { api, UpdateProfileInput } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { UpdateProfileInput } from "@/types";
 import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

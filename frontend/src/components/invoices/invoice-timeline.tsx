@@ -1,6 +1,7 @@
 "use client";
 
-import { FollowUpSchedule, FollowUpLog } from "@/lib/api";
+import type { FollowUpSchedule, FollowUpLog } from "@/types";
+import { formatShortDate } from "@/utils/format";
 
 interface TimelineNode {
   key: string;
@@ -19,10 +20,6 @@ const TEMPLATE_LABELS: Record<string, string> = {
   SECOND_OVERDUE: "1 week overdue",
   FINAL_NOTICE: "Final notice",
 };
-
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString("en-NG", { month: "short", day: "numeric" });
-}
 
 function relativeLabel(date: Date, now: Date): string {
   const diffMs = date.getTime() - now.getTime();
@@ -65,11 +62,7 @@ function ChannelPips({ channels }: { channels: string[] }) {
   );
 }
 
-interface NodeDotProps {
-  status: TimelineNode["status"];
-}
-
-function NodeDot({ status }: NodeDotProps) {
+function NodeDot({ status }: { status: TimelineNode["status"] }) {
   if (status === "sent") {
     return (
       <div className="w-3 h-3 rounded-full bg-success-500 ring-2 ring-success-200 flex-shrink-0" />
@@ -119,7 +112,7 @@ function buildNodes(
       (l) =>
         sentAt &&
         Math.abs(new Date(l.sentAt).getTime() - new Date(sentAt).getTime()) <
-          60_000 * 5,
+          300_000,
     )
     .map((l) => l.channel);
 

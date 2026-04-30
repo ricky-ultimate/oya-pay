@@ -1,25 +1,10 @@
 "use client";
 
 import { useQueries } from "@tanstack/react-query";
-import { api, FollowUpSchedule } from "@/lib/api";
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  INVOICE_SENT: "Invoice Sent",
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
-};
-
-function formatDateTime(date: string): string {
-  return new Date(date).toLocaleDateString("en-NG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { api } from "@/lib/api";
+import type { FollowUpSchedule } from "@/types";
+import { TEMPLATE_LABELS } from "@/utils/constants";
+import { formatDateTime } from "@/utils/format";
 
 interface PreviewCardProps {
   invoiceId: string;
@@ -27,7 +12,7 @@ interface PreviewCardProps {
 }
 
 function PreviewCard({ invoiceId, schedule }: PreviewCardProps) {
-  const emailQuery = useQueries({
+  const results = useQueries({
     queries: [
       {
         queryKey: ["followup-preview", invoiceId, schedule.template, "EMAIL"],
@@ -49,10 +34,9 @@ function PreviewCard({ invoiceId, schedule }: PreviewCardProps) {
     ],
   });
 
-  const emailPreview = emailQuery[0];
-  const waPreview = emailQuery[1];
+  const emailPreview = results[0];
+  const waPreview = results[1];
   const isLoading = emailPreview.isLoading || waPreview.isLoading;
-
   const isPast = new Date(schedule.scheduledAt) < new Date();
 
   return (

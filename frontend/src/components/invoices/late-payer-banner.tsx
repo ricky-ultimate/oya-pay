@@ -1,6 +1,6 @@
 "use client";
 
-import { ClientStats, FollowUpStepConfig } from "@/lib/api";
+import type { ClientStats, FollowUpStepConfig } from "@/types";
 
 interface LatePayerBannerProps {
   clientName: string;

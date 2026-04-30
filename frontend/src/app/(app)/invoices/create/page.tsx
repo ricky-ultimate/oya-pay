@@ -3,14 +3,13 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  api,
+import { api, buildDefaultFollowUpSteps } from "@/lib/api";
+import type {
   Client,
   ClientStats,
   CreateInvoiceInput,
   FollowUpStepConfig,
-  buildDefaultFollowUpSteps,
-} from "@/lib/api";
+} from "@/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,36 +18,15 @@ import { Modal } from "@/components/ui/modal";
 import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
 import { LatePayerBanner } from "@/components/invoices/late-payer-banner";
 import { useToast } from "@/components/ui/toast";
+import { formatNaira } from "@/utils/format";
+import { computeScheduledDate, isInPast } from "@/utils/invoice";
+import { TEMPLATE_LABELS } from "@/utils/constants";
 
 interface LineItem {
   description: string;
   quantity: string;
   unitPrice: string;
 }
-
-function formatNaira(amount: number): string {
-  return `₦${amount.toLocaleString("en-NG")}`;
-}
-
-function computeScheduledDate(dueDate: string, offsetDays: number): string {
-  const due = new Date(dueDate);
-  const d = new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000);
-  return d.toLocaleDateString("en-NG", { day: "numeric", month: "short" });
-}
-
-function isInPast(dueDate: string, offsetDays: number): boolean {
-  const due = new Date(dueDate);
-  return (
-    new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000) <= new Date()
-  );
-}
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
-};
 
 type SendPhase = "configure" | "confirmed";
 

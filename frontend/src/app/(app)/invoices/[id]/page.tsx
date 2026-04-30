@@ -4,14 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import {
-  api,
+import { api, buildDefaultFollowUpSteps } from "@/lib/api";
+import type {
   Invoice,
   InvoiceStatus,
   FollowUpStepConfig,
   FollowUpActivity,
-  buildDefaultFollowUpSteps,
-} from "@/lib/api";
+} from "@/types";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,39 +23,9 @@ import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
 import { EscalateModal } from "@/components/invoices/escalate-modal";
 import { InvoiceTimeline } from "@/components/invoices/invoice-timeline";
 import { useToast } from "@/components/ui/toast";
-
-function formatNaira(amount: number): string {
-  return `₦${Number(amount).toLocaleString("en-NG")}`;
-}
-
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-NG", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function computeScheduledDate(dueDate: string, offsetDays: number): string {
-  const due = new Date(dueDate);
-  const d = new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000);
-  return d.toLocaleDateString("en-NG", { day: "numeric", month: "short" });
-}
-
-function isInPast(dueDate: string, offsetDays: number): boolean {
-  const due = new Date(dueDate);
-  return (
-    new Date(due.getTime() + offsetDays * 24 * 60 * 60 * 1000) <= new Date()
-  );
-}
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
-  INVOICE_SENT: "Invoice Sent",
-};
+import { formatNaira, formatDate } from "@/utils/format";
+import { computeScheduledDate, isInPast } from "@/utils/invoice";
+import { TEMPLATE_LABELS } from "@/utils/constants";
 
 type SendPhase = "configure" | "confirmed";
 

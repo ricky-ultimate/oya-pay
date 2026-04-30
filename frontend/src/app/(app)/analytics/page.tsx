@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { api, FollowUpAnalytics, DashboardStats } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { FollowUpAnalytics, DashboardStats } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ComposedChart,
@@ -15,41 +16,8 @@ import {
   BarChart,
   Legend,
 } from "recharts";
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  INVOICE_SENT: "Invoice Sent",
-  PRE_DUE_REMINDER: "Pre-due",
-  FIRST_OVERDUE: "1st Overdue",
-  SECOND_OVERDUE: "2nd Overdue",
-  FINAL_NOTICE: "Final Notice",
-};
-
-const BEST_TEMPLATE_LABELS: Record<string, string> = {
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
-};
-
-function formatNaira(amount: number): string {
-  if (amount >= 1_000_000) {
-    return `₦${(amount / 1_000_000).toFixed(1)}M`;
-  }
-  if (amount >= 1_000) {
-    return `₦${(amount / 1_000).toFixed(0)}k`;
-  }
-  return `₦${amount.toLocaleString("en-NG")}`;
-}
-
-function formatNairaFull(amount: number): string {
-  return `₦${amount.toLocaleString("en-NG")}`;
-}
-
-function formatMonth(month: string): string {
-  const [year, m] = month.split("-");
-  const date = new Date(Number(year), Number(m) - 1, 1);
-  return date.toLocaleDateString("en-NG", { month: "short" });
-}
+import { formatNaira, formatNairaCompact, formatMonth } from "@/utils/format";
+import { TEMPLATE_LABELS_SHORT, TEMPLATE_LABELS_BEST } from "@/utils/constants";
 
 interface StatCardProps {
   label: string;
@@ -149,7 +117,7 @@ interface TemplateChartProps {
 
 function TemplatePerformanceChart({ data }: TemplateChartProps) {
   const chartData = data.map((s) => ({
-    name: TEMPLATE_LABELS[s.template] ?? s.template,
+    name: TEMPLATE_LABELS_SHORT[s.template] ?? s.template,
     Sent: s.uniqueInvoicesSent,
     Converted: s.conversions,
     rate: s.conversionRate,
@@ -282,9 +250,7 @@ function ChannelCard({ stat }: ChannelCardProps) {
             "h-full rounded-full transition-all",
             isWhatsApp ? "bg-brand-green" : "bg-primary-500",
           ].join(" ")}
-          style={{
-            width: `${Math.min(stat.conversionRate, 100)}%`,
-          }}
+          style={{ width: `${Math.min(stat.conversionRate, 100)}%` }}
         />
       </div>
     </div>
@@ -296,10 +262,7 @@ interface TrendChartProps {
 }
 
 function MonthlyTrendChart({ data }: TrendChartProps) {
-  const chartData = data.map((d) => ({
-    ...d,
-    month: formatMonth(d.month),
-  }));
+  const chartData = data.map((d) => ({ ...d, month: formatMonth(d.month) }));
 
   return (
     <div className="bg-white rounded-xl border border-neutral-200 p-5">
@@ -333,7 +296,7 @@ function MonthlyTrendChart({ data }: TrendChartProps) {
               tick={{ fontSize: 12, fill: "#6B7280" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v: number) => formatNaira(v)}
+              tickFormatter={(v: number) => formatNairaCompact(v)}
               width={52}
             />
             <Tooltip
@@ -345,7 +308,7 @@ function MonthlyTrendChart({ data }: TrendChartProps) {
               formatter={(value, name) => {
                 const numValue = Number(value);
                 if (name === "paymentsRecovered") {
-                  return [`₦${numValue.toLocaleString("en-NG")}`, "Recovered"];
+                  return [formatNaira(numValue), "Recovered"];
                 }
                 return [numValue, "Follow-ups Sent"];
               }}
@@ -425,13 +388,13 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
               label="Recovered this month"
-              value={formatNairaFull(recoveredThisMonth)}
+              value={formatNaira(recoveredThisMonth)}
               subtext="Payments within 48h of follow-up"
               accent
             />
             <StatCard
               label="Total recovered"
-              value={formatNairaFull(data?.totalRecovered ?? 0)}
+              value={formatNaira(data?.totalRecovered ?? 0)}
               subtext="All time via automated reminders"
             />
             <StatCard
@@ -458,7 +421,7 @@ export default function AnalyticsPage() {
                     <div className="w-px h-8 bg-neutral-200 hidden sm:block" />
                     <div>
                       <p className="text-sm font-semibold text-success-700 tabular-nums">
-                        {formatNairaFull(recoveredThisMonth)} recovered
+                        {formatNaira(recoveredThisMonth)} recovered
                       </p>
                       <p className="text-xs text-success-600">
                         via automated reminders
@@ -471,7 +434,7 @@ export default function AnalyticsPage() {
                     <div className="w-px h-8 bg-neutral-200 hidden sm:block" />
                     <div>
                       <p className="text-sm font-semibold text-warning-700 tabular-nums">
-                        {formatNairaFull(unprotectedOutstanding)} at risk
+                        {formatNaira(unprotectedOutstanding)} at risk
                       </p>
                       <p className="text-xs text-warning-600">
                         outstanding with no active follow-up
@@ -505,7 +468,7 @@ export default function AnalyticsPage() {
                 <p className="text-sm text-warning-700 mt-0.5">
                   Your{" "}
                   <span className="font-medium">
-                    {BEST_TEMPLATE_LABELS[data.bestPerformingTemplate] ??
+                    {TEMPLATE_LABELS_BEST[data.bestPerformingTemplate] ??
                       data.bestPerformingTemplate}
                   </span>{" "}
                   has the highest payment conversion rate among templates with

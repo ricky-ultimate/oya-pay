@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import {
-  api,
+import { api } from "@/lib/api";
+import type {
   Invoice,
   FollowUpActivity,
   FollowUpSchedule,
   FollowUpLog,
-} from "@/lib/api";
+} from "@/types";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,14 +19,8 @@ import { EscalateModal } from "@/components/invoices/escalate-modal";
 import { MessagePreviewButton } from "@/components/invoices/message-preview";
 import { PreviewAllPanel } from "@/components/invoices/preview-all-panel";
 import { useToast } from "@/components/ui/toast";
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  INVOICE_SENT: "Invoice Sent",
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
-};
+import { formatDateTime } from "@/utils/format";
+import { TEMPLATE_LABELS } from "@/utils/constants";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   PENDING: { label: "Scheduled", className: "bg-warning-50 text-warning-700" },
@@ -38,16 +32,6 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
     className: "bg-neutral-100 text-neutral-400",
   },
 };
-
-function formatDateTime(date: string): string {
-  return new Date(date).toLocaleDateString("en-NG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function StatusPill({ status }: { status: string }) {
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG["PENDING"]!;

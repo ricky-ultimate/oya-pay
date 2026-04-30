@@ -4,15 +4,13 @@ import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { api, Invoice, InvoiceStatus } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Invoice, InvoiceStatus } from "@/types";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-
-function formatNaira(amount: number): string {
-  return `₦${Number(amount).toLocaleString("en-NG")}`;
-}
+import { formatNaira } from "@/utils/format";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "All" },

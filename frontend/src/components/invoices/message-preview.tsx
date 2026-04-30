@@ -3,23 +3,17 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { FollowUpChannelType } from "@/types";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
-  INVOICE_SENT: "Invoice Sent",
-};
+import { TEMPLATE_LABELS } from "@/utils/constants";
 
 interface MessagePreviewButtonProps {
   invoiceId: string;
   scheduleId: string;
   template: string;
-  channel: "EMAIL" | "WHATSAPP";
+  channel: FollowUpChannelType;
   onSent?: () => void;
 }
 

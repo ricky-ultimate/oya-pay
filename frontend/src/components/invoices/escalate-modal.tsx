@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { FollowUpChannelType } from "@/types";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -14,8 +15,6 @@ type FollowUpTemplate =
   | "FIRST_OVERDUE"
   | "SECOND_OVERDUE"
   | "FINAL_NOTICE";
-
-type Channel = "EMAIL" | "WHATSAPP";
 
 const TEMPLATE_OPTIONS: { value: FollowUpTemplate; label: string }[] = [
   { value: "PRE_DUE_REMINDER", label: "Pre-due Reminder" },
@@ -30,7 +29,7 @@ interface EscalateModalProps {
   open: boolean;
   onClose: () => void;
   onSent: () => void;
-  initialChannel?: Channel;
+  initialChannel?: FollowUpChannelType;
   initialTemplate?: FollowUpTemplate;
 }
 
@@ -43,12 +42,12 @@ export function EscalateModal({
   initialChannel,
   initialTemplate,
 }: EscalateModalProps) {
-  const defaultChannel: Channel =
+  const defaultChannel: FollowUpChannelType =
     initialChannel ?? (hasPhone ? "WHATSAPP" : "EMAIL");
   const [template, setTemplate] = useState<FollowUpTemplate>(
     initialTemplate ?? "FIRST_OVERDUE",
   );
-  const [channel, setChannel] = useState<Channel>(defaultChannel);
+  const [channel, setChannel] = useState<FollowUpChannelType>(defaultChannel);
   const [note, setNote] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -130,7 +129,7 @@ export function EscalateModal({
           <Select
             label="Channel"
             value={channel}
-            onChange={(e) => setChannel(e.target.value as Channel)}
+            onChange={(e) => setChannel(e.target.value as FollowUpChannelType)}
           >
             {hasPhone && <option value="WHATSAPP">WhatsApp</option>}
             <option value="EMAIL">Email</option>

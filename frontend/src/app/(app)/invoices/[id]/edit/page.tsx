@@ -3,22 +3,20 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, Invoice, Client, UpdateInvoiceInput } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Invoice, Client, UpdateInvoiceInput } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { formatNaira } from "@/utils/format";
 
 interface LineItem {
   description: string;
   quantity: string;
   unitPrice: string;
-}
-
-function formatNaira(amount: number): string {
-  return `₦${amount.toLocaleString("en-NG")}`;
 }
 
 export default function EditInvoicePage() {
