@@ -30,6 +30,12 @@ export interface Client {
   updatedAt: string;
   _count?: { invoices: number };
   invoices?: Invoice[];
+  reliabilityScore?:
+    | "on_time"
+    | "sometimes_late"
+    | "consistently_late"
+    | "no_data";
+  avgDaysLate?: number | null;
 }
 
 export interface InvoiceItem {

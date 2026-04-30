@@ -13,12 +13,56 @@ export const createClient = async (userId: string, input: CreateClientInput) =>
     },
   });
 
-export const getClients = async (userId: string) =>
-  prisma.client.findMany({
+export const getClients = async (userId: string) => {
+  const clients = await prisma.client.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { invoices: true } } },
+    include: {
+      _count: { select: { invoices: true } },
+      invoices: {
+        where: { status: "PAID" },
+        include: {
+          payments: { orderBy: { paidAt: "asc" }, take: 1 },
+        },
+      },
+    },
   });
+
+  return clients.map((client) => {
+    const daysLateValues: number[] = [];
+
+    for (const inv of client.invoices) {
+      const firstPayment = inv.payments[0];
+      if (!firstPayment) continue;
+      const diffMs =
+        new Date(firstPayment.paidAt).getTime() -
+        new Date(inv.dueDate).getTime();
+      daysLateValues.push(Math.round(diffMs / (1000 * 60 * 60 * 24)));
+    }
+
+    let reliabilityScore: ClientStats["reliabilityScore"] = "no_data";
+    let avgDaysLate: number | null = null;
+
+    if (daysLateValues.length >= 1) {
+      const avg =
+        daysLateValues.reduce((a, b) => a + b, 0) / daysLateValues.length;
+      avgDaysLate = Math.round(avg);
+      const lateCount = daysLateValues.filter((d) => d > 2).length;
+      const lateRatio = lateCount / daysLateValues.length;
+
+      if (avg <= 2 && lateRatio <= 0.2) {
+        reliabilityScore = "on_time";
+      } else if (lateRatio >= 0.6 || avg > 14) {
+        reliabilityScore = "consistently_late";
+      } else {
+        reliabilityScore = "sometimes_late";
+      }
+    }
+
+    const { invoices: _invoices, ...rest } = client;
+    return { ...rest, reliabilityScore, avgDaysLate };
+  });
+};
 
 export const getClientById = async (userId: string, clientId: string) =>
   prisma.client.findFirst({
