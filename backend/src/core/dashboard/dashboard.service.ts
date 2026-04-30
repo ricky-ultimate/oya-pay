@@ -1,6 +1,8 @@
 import prisma from "../../config/db.config";
 import { InvoiceStatus } from "../../generated/prisma/client";
 
+const RECOVERY_WINDOW_MS = 48 * 60 * 60 * 1000;
+
 const getMonthlyRevenue = async (userId: string) => {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
@@ -93,6 +95,76 @@ const getTopOverdueClients = async (userId: string) => {
     .slice(0, 5);
 };
 
+const getRecoveryStats = async (userId: string) => {
+  const [allLogs, allPayments] = await Promise.all([
+    prisma.followUpLog.findMany({
+      where: { invoice: { userId }, status: "SENT" },
+      select: { invoiceId: true, sentAt: true },
+    }),
+    prisma.payment.findMany({
+      where: { invoice: { userId } },
+      select: { invoiceId: true, amount: true, paidAt: true },
+    }),
+  ]);
+
+  const logsByInvoice = new Map<string, Date[]>();
+  for (const log of allLogs) {
+    const arr = logsByInvoice.get(log.invoiceId) ?? [];
+    arr.push(log.sentAt);
+    logsByInvoice.set(log.invoiceId, arr);
+  }
+
+  let totalRecovered = 0;
+  for (const payment of allPayments) {
+    const logDates = logsByInvoice.get(payment.invoiceId) ?? [];
+    const windowStart = new Date(payment.paidAt.getTime() - RECOVERY_WINDOW_MS);
+    const hasFollowUp = logDates.some(
+      (d) => d >= windowStart && d <= payment.paidAt,
+    );
+    if (hasFollowUp) {
+      totalRecovered += Number(payment.amount);
+    }
+  }
+
+  const unprotectedOutstanding = await (async () => {
+    const activeFollowUpInvoiceIds = await prisma.followUpSchedule
+      .findMany({
+        where: {
+          invoice: { userId },
+          status: { in: ["PENDING", "PAUSED"] },
+        },
+        select: { invoiceId: true },
+        distinct: ["invoiceId"],
+      })
+      .then((rows) => new Set(rows.map((r) => r.invoiceId)));
+
+    const outstandingInvoices = await prisma.invoice.findMany({
+      where: {
+        userId,
+        status: {
+          in: [
+            InvoiceStatus.PENDING,
+            InvoiceStatus.PARTIAL,
+            InvoiceStatus.OVERDUE,
+          ],
+        },
+      },
+      include: { payments: { select: { amount: true } } },
+    });
+
+    let unprotected = 0;
+    for (const inv of outstandingInvoices) {
+      if (activeFollowUpInvoiceIds.has(inv.id)) continue;
+      const paid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
+      const outstanding = Number(inv.total) - paid;
+      if (outstanding > 0) unprotected += outstanding;
+    }
+    return unprotected;
+  })();
+
+  return { totalRecovered, unprotectedOutstanding };
+};
+
 export const getDashboardStats = async (userId: string) => {
   const [
     totalInvoices,
@@ -102,6 +174,7 @@ export const getDashboardStats = async (userId: string) => {
     recentInvoices,
     monthlyRevenue,
     topOverdueClients,
+    recoveryStats,
   ] = await Promise.all([
     prisma.invoice.count({ where: { userId } }),
 
@@ -139,6 +212,7 @@ export const getDashboardStats = async (userId: string) => {
 
     getMonthlyRevenue(userId),
     getTopOverdueClients(userId),
+    getRecoveryStats(userId),
   ]);
 
   const statusMap = statusCounts.reduce(
@@ -154,6 +228,8 @@ export const getDashboardStats = async (userId: string) => {
       totalInvoices,
       totalRevenue: Number(totalRevenue._sum.amount ?? 0),
       outstandingAmount: Number(outstanding._sum.total ?? 0),
+      totalRecovered: recoveryStats.totalRecovered,
+      unprotectedOutstanding: recoveryStats.unprotectedOutstanding,
       statusBreakdown: {
         draft: statusMap["DRAFT"] ?? 0,
         pending: statusMap["PENDING"] ?? 0,
