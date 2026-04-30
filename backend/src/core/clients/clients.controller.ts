@@ -1,3 +1,4 @@
+// backend/src/core/clients/clients.controller.ts
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import {
@@ -6,6 +7,7 @@ import {
   getClientById,
   updateClient,
   deleteClient,
+  getClientStats,
 } from "./clients.service";
 import { sendSuccess, sendError } from "../../utils/response.utils";
 
@@ -70,5 +72,15 @@ export const remove = async (
     sendSuccess(res, 200, "Client deleted");
   } catch (error: unknown) {
     sendError(res, 400, (error as Error).message);
+  }
+};
+
+export const stats = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    const data = await getClientStats(req.userId!, id);
+    sendSuccess(res, 200, "Client stats fetched", data);
+  } catch (error: unknown) {
+    sendError(res, 500, (error as Error).message);
   }
 };
