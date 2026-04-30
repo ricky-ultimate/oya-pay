@@ -185,6 +185,7 @@ export const deleteInvoice = async (userId: string, invoiceId: string) => {
 
 const buildTemplateData = (
   invoice: {
+    id: string;
     invoiceNumber: string;
     total: unknown;
     currency: string;
@@ -202,6 +203,7 @@ const buildTemplateData = (
     amount: Number(invoice.total).toLocaleString("en-NG"),
     currency: invoice.currency,
     dueDate: new Date(invoice.dueDate).toLocaleDateString("en-NG"),
+    trackingPixelUrl: `${ENV.APP_URL}/api/track/open/${invoice.id}`,
   };
 
   if (invoice.user.businessName !== null) {
@@ -209,7 +211,7 @@ const buildTemplateData = (
   }
 
   if (paystackRef !== null) {
-    base.payLink = `https://paystack.com/pay/${paystackRef}`;
+    base.payLink = `${ENV.APP_URL}/api/track/click/${invoice.id}`;
   }
 
   return base;
@@ -273,6 +275,7 @@ export const sendInvoice = async (
       data: {
         invoiceId,
         channel: FollowUpChannel.EMAIL,
+        template: FollowUpTemplate.INVOICE_SENT,
         message: tpl.subject,
         status: results["email"] ? "SENT" : "FAILED",
       },
@@ -293,6 +296,7 @@ export const sendInvoice = async (
       data: {
         invoiceId,
         channel: FollowUpChannel.WHATSAPP,
+        template: FollowUpTemplate.INVOICE_SENT,
         message,
         status: results["whatsapp"] ? "SENT" : "FAILED",
       },
