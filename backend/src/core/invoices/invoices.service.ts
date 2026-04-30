@@ -136,7 +136,7 @@ export const getInvoiceById = async (userId: string, invoiceId: string) => {
             followUpNumber: i + 1,
             channel: log.channel,
             template: log.template ?? null,
-            sentAt: log.sentAt,
+            sentAt: log.sentAt.toISOString(),
           };
           break;
         }
