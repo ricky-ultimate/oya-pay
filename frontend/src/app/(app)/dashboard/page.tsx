@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api, DashboardStats, InvoiceStatus } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,6 +60,65 @@ function DashboardSkeleton() {
       </div>
       <Skeleton className="h-64 rounded-xl" />
       <Skeleton className="h-48 rounded-xl" />
+      <Skeleton className="h-48 rounded-xl" />
+    </div>
+  );
+}
+
+function OverdueClientRow({
+  entry,
+}: {
+  entry: DashboardStats["topOverdueClients"][number];
+}) {
+  const router = useRouter();
+
+  return (
+    <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-neutral-50 transition-colors">
+      <Link
+        href={`/clients/${entry.clientId}`}
+        className="flex items-center gap-3 flex-1 min-w-0"
+      >
+        <div className="w-8 h-8 rounded-full bg-error-50 flex items-center justify-center text-error-700 text-sm font-semibold flex-shrink-0">
+          {entry.name[0]?.toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-neutral-900 truncate">
+            {entry.name}
+          </p>
+          <p className="text-xs text-neutral-500">
+            {entry.invoiceCount} invoice{entry.invoiceCount !== 1 ? "s" : ""} ·{" "}
+            {entry.oldestDueDays > 0
+              ? `${entry.oldestDueDays}d overdue`
+              : "due soon"}
+          </p>
+        </div>
+      </Link>
+      <div className="text-right flex-shrink-0">
+        <p className="text-sm font-semibold text-error-700 tabular-nums">
+          {formatNaira(entry.totalOutstanding)}
+        </p>
+      </div>
+      <button
+        onClick={() =>
+          router.push(`/invoices/${entry.mostOverdueInvoiceId}/followups`)
+        }
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning-50 text-warning-700 text-xs font-medium hover:bg-warning-100 transition-colors flex-shrink-0"
+      >
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13 10V3L4 14h7v7l9-11h-7z"
+          />
+        </svg>
+        Remind
+      </button>
     </div>
   );
 }
@@ -74,6 +134,7 @@ export default function DashboardPage() {
   const overview = data?.overview;
   const recentInvoices = data?.recentInvoices ?? [];
   const monthlyRevenue = data?.monthlyRevenue ?? [];
+  const topOverdueClients = data?.topOverdueClients ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -109,6 +170,33 @@ export default function DashboardPage() {
           value={String(overview?.statusBreakdown.overdue ?? 0)}
         />
       </div>
+
+      {topOverdueClients.length > 0 && (
+        <div className="bg-white rounded-xl border border-neutral-200">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-neutral-900">
+                Needs attention
+              </h2>
+              <span className="inline-flex items-center h-5 px-2 rounded-full bg-error-50 text-error-700 text-xs font-medium">
+                {topOverdueClients.length} client
+                {topOverdueClients.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <Link
+              href="/invoices?status=OVERDUE"
+              className="text-sm text-primary-600 font-medium hover:underline"
+            >
+              View all
+            </Link>
+          </div>
+          <div className="divide-y divide-neutral-100">
+            {topOverdueClients.map((entry) => (
+              <OverdueClientRow key={entry.clientId} entry={entry} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {monthlyRevenue.length > 0 && (
         <div className="bg-white rounded-xl border border-neutral-200 p-5">
