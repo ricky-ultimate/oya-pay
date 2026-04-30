@@ -1,18 +1,15 @@
-// frontend/src/app/(app)/clients/[id]/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { api, Client, ClientStats, InvoiceStatus } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Client, ClientStats, InvoiceStatus } from "@/types";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReliabilityBadge } from "@/components/ui/reliability-badge";
-
-function formatNaira(amount: number): string {
-  return `₦${Number(amount).toLocaleString("en-NG")}`;
-}
+import { formatNaira } from "@/utils/format";
 
 function StatTile({
   label,

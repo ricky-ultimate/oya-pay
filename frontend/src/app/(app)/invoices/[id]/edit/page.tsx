@@ -3,23 +3,21 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, Invoice, Client, UpdateInvoiceInput } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Invoice, Client, UpdateInvoiceInput } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BackButton } from "@/components/ui/back-button";
+import { SectionCard, SectionCardBody } from "@/components/ui/section-card";
+import {
+  LineItemsEditor,
+  LineItem,
+} from "@/components/invoices/line-items-editor";
+import { InvoiceTotals } from "@/components/invoices/invoice-totals";
 import { useToast } from "@/components/ui/toast";
-
-interface LineItem {
-  description: string;
-  quantity: string;
-  unitPrice: string;
-}
-
-function formatNaira(amount: number): string {
-  return `₦${amount.toLocaleString("en-NG")}`;
-}
 
 export default function EditInvoicePage() {
   const { id } = useParams<{ id: string }>();
@@ -60,12 +58,14 @@ export default function EditInvoicePage() {
     );
   }, [invoice]);
 
-  const subtotal = items.reduce((sum, item) => {
-    return (
-      sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)
-    );
-  }, 0);
-  const taxAmount = (subtotal * (parseFloat(tax) || 0)) / 100;
+  const taxPercent = parseFloat(tax) || 0;
+  const subtotal = items.reduce(
+    (sum, item) =>
+      sum +
+      (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0),
+    0,
+  );
+  const taxAmount = (subtotal * taxPercent) / 100;
   const total = subtotal + taxAmount;
 
   const updateMutation = useMutation({
@@ -84,7 +84,7 @@ export default function EditInvoicePage() {
       title,
       clientId,
       dueDate: new Date(dueDate).toISOString(),
-      tax: parseFloat(tax) > 0 ? taxAmount : 0,
+      tax: taxPercent > 0 ? taxAmount : 0,
       notes: notes || undefined,
       items: items.map((i) => ({
         description: i.description,
@@ -92,19 +92,6 @@ export default function EditInvoicePage() {
         unitPrice: parseFloat(i.unitPrice) || 0,
       })),
     });
-  };
-
-  const addItem = () =>
-    setItems((prev) => [
-      ...prev,
-      { description: "", quantity: "1", unitPrice: "" },
-    ]);
-  const removeItem = (idx: number) =>
-    setItems((prev) => prev.filter((_, i) => i !== idx));
-  const updateItem = (idx: number, field: keyof LineItem, value: string) => {
-    setItems((prev) =>
-      prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)),
-    );
   };
 
   if (isLoading) {
@@ -134,163 +121,83 @@ export default function EditInvoicePage() {
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 transition-colors"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
+        <BackButton />
         <h1 className="text-2xl font-bold text-neutral-900">Edit Invoice</h1>
       </div>
 
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 flex flex-col gap-4">
-        <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
-          Invoice Details
-        </h2>
-        <Input
-          label="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <Select
-          label="Client"
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-        >
-          <option value="">Select a client</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-        <Input
-          label="Due Date"
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-        />
-      </div>
+      <SectionCard>
+        <SectionCardBody className="flex flex-col gap-4">
+          <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
+            Invoice Details
+          </h2>
+          <Input
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <Select
+            label="Client"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+          >
+            <option value="">Select a client</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          <Input
+            label="Due Date"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </SectionCardBody>
+      </SectionCard>
 
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 flex flex-col gap-4">
-        <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
-          Line Items
-        </h2>
-        <div className="flex flex-col gap-3">
-          {items.map((item, idx) => (
-            <div key={idx} className="flex gap-2 items-start">
-              <div className="flex-1">
-                <Input
-                  placeholder="Description"
-                  value={item.description}
-                  onChange={(e) =>
-                    updateItem(idx, "description", e.target.value)
-                  }
-                />
-              </div>
-              <div className="w-16">
-                <Input
-                  placeholder="Qty"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(idx, "quantity", e.target.value)}
-                />
-              </div>
-              <div className="w-28">
-                <Input
-                  placeholder="Unit Price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={item.unitPrice}
-                  onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
-                  prefix="₦"
-                />
-              </div>
-              {items.length > 1 && (
-                <button
-                  onClick={() => removeItem(idx)}
-                  className="h-11 w-9 flex items-center justify-center rounded-lg text-neutral-400 hover:text-error-600 hover:bg-error-50 flex-shrink-0 transition-colors"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <button
-          onClick={addItem}
-          className="text-sm text-primary-600 font-medium hover:underline text-left"
-        >
-          + Add item
-        </button>
-      </div>
+      <SectionCard>
+        <SectionCardBody className="flex flex-col gap-4">
+          <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
+            Line Items
+          </h2>
+          <LineItemsEditor items={items} onChange={setItems} />
+        </SectionCardBody>
+      </SectionCard>
 
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 flex flex-col gap-4">
-        <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
-          Additional
-        </h2>
-        <Input
-          label="Tax (%)"
-          type="number"
-          min="0"
-          max="100"
-          step="0.01"
-          value={tax}
-          onChange={(e) => setTax(e.target.value)}
-          suffix="%"
-        />
-        <Textarea
-          label="Notes (optional)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </div>
+      <SectionCard>
+        <SectionCardBody className="flex flex-col gap-4">
+          <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
+            Additional
+          </h2>
+          <Input
+            label="Tax (%)"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            value={tax}
+            onChange={(e) => setTax(e.target.value)}
+            suffix="%"
+          />
+          <Textarea
+            label="Notes (optional)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </SectionCardBody>
+      </SectionCard>
 
-      <div className="bg-white rounded-xl border border-neutral-200 p-5">
-        <div className="flex flex-col gap-1.5 text-sm">
-          <div className="flex justify-between text-neutral-600">
-            <span>Subtotal</span>
-            <span className="tabular-nums">{formatNaira(subtotal)}</span>
-          </div>
-          {parseFloat(tax) > 0 && (
-            <div className="flex justify-between text-neutral-600">
-              <span>Tax ({tax}%)</span>
-              <span className="tabular-nums">{formatNaira(taxAmount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between font-semibold text-neutral-900 text-base border-t-2 border-neutral-200 pt-2 mt-1">
-            <span>Total</span>
-            <span className="tabular-nums">{formatNaira(total)}</span>
-          </div>
-        </div>
-      </div>
+      <SectionCard>
+        <SectionCardBody>
+          <InvoiceTotals
+            subtotal={subtotal}
+            taxPercent={taxPercent}
+            taxAmount={taxAmount}
+            total={total}
+          />
+        </SectionCardBody>
+      </SectionCard>
 
       <div className="flex gap-3 pb-4">
         <Button

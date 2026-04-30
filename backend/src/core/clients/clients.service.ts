@@ -20,7 +20,7 @@ export const getClients = async (userId: string) => {
     include: {
       _count: { select: { invoices: true } },
       invoices: {
-        where: { status: "PAID" },
+        where: { status: InvoiceStatus.PAID },
         include: {
           payments: { orderBy: { paidAt: "asc" }, take: 1 },
         },

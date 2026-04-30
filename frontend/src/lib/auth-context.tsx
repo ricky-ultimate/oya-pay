@@ -8,19 +8,14 @@ import {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { api, User } from "./api";
+import { api } from "./api";
+import type { RegisterInput, User } from "@/types";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: {
-    name: string;
-    email: string;
-    password: string;
-    businessName?: string;
-    phone?: string;
-  }) => Promise<void>;
+  register: (data: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
 }
@@ -53,13 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/dashboard");
   };
 
-  const register = async (data: {
-    name: string;
-    email: string;
-    password: string;
-    businessName?: string;
-    phone?: string;
-  }) => {
+  const register = async (data: RegisterInput) => {
     await api.register(data);
     const me = await api.getMe();
     setUser(me);

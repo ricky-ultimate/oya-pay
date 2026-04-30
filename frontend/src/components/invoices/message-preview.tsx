@@ -3,23 +3,18 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { FollowUpChannelType } from "@/types";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { IconEye } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/toast";
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
-  INVOICE_SENT: "Invoice Sent",
-};
+import { TEMPLATE_LABELS } from "@/utils/constants";
 
 interface MessagePreviewButtonProps {
   invoiceId: string;
   scheduleId: string;
   template: string;
-  channel: "EMAIL" | "WHATSAPP";
+  channel: FollowUpChannelType;
   onSent?: () => void;
 }
 
@@ -58,6 +53,13 @@ export function MessagePreviewButton({
     onError: () => toast("Failed to send follow-up", "error"),
   });
 
+  const handleClose = () => {
+    if (!triggerMutation.isPending) {
+      setOpen(false);
+      setNote("");
+    }
+  };
+
   return (
     <>
       <button
@@ -66,43 +68,18 @@ export function MessagePreviewButton({
         aria-label="Preview and send"
         title="Preview message"
       >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-          />
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-          />
-        </svg>
+        <IconEye />
       </button>
 
       <Modal
         open={open}
-        onClose={() => {
-          if (!triggerMutation.isPending) {
-            setOpen(false);
-            setNote("");
-          }
-        }}
+        onClose={handleClose}
         title={`Preview: ${TEMPLATE_LABELS[template] ?? template}`}
         footer={
           <>
             <Button
               variant="secondary"
-              onClick={() => {
-                setOpen(false);
-                setNote("");
-              }}
+              onClick={handleClose}
               disabled={triggerMutation.isPending}
             >
               Close
@@ -123,30 +100,21 @@ export function MessagePreviewButton({
         ) : preview ? (
           <div className="flex flex-col gap-4">
             <div className="flex gap-0 border-b border-neutral-200">
-              <button
-                type="button"
-                onClick={() => setActiveTab("email")}
-                className={[
-                  "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                  activeTab === "email"
-                    ? "border-primary-500 text-primary-600"
-                    : "border-transparent text-neutral-500 hover:text-neutral-700",
-                ].join(" ")}
-              >
-                Email
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("whatsapp")}
-                className={[
-                  "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                  activeTab === "whatsapp"
-                    ? "border-primary-500 text-primary-600"
-                    : "border-transparent text-neutral-500 hover:text-neutral-700",
-                ].join(" ")}
-              >
-                WhatsApp
-              </button>
+              {(["email", "whatsapp"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={[
+                    "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors capitalize",
+                    activeTab === tab
+                      ? "border-primary-500 text-primary-600"
+                      : "border-transparent text-neutral-500 hover:text-neutral-700",
+                  ].join(" ")}
+                >
+                  {tab === "whatsapp" ? "WhatsApp" : "Email"}
+                </button>
+              ))}
             </div>
 
             {activeTab === "email" && (
