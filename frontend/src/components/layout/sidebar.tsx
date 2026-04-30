@@ -25,11 +25,6 @@ const navItems = [
     label: "Analytics",
     icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
   },
-  {
-    href: "/profile",
-    label: "Profile",
-    icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
-  },
 ];
 
 export function Sidebar() {
@@ -37,17 +32,17 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="hidden lg:flex flex-col w-60 h-screen bg-white border-r border-neutral-200 fixed left-0 top-0 z-[1020]">
-      <div className="px-6 py-5 border-b border-neutral-200">
+    <aside className="hidden lg:flex flex-col w-56 h-screen bg-white border-r border-neutral-100 fixed left-0 top-0 z-[1020]">
+      <div className="px-5 py-5">
         <span
-          className="text-xl font-bold tracking-tight text-neutral-900"
+          className="text-lg font-bold tracking-tight text-neutral-900"
           style={{ letterSpacing: "-0.5px" }}
         >
           OyaPay
         </span>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-2 flex flex-col gap-0.5">
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
@@ -55,14 +50,14 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={[
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-100",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 active
-                  ? "bg-primary-50 text-primary-700"
-                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900",
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800",
               ].join(" ")}
             >
               <svg
-                className={`w-5 h-5 flex-shrink-0 ${active ? "text-primary-600" : "text-neutral-400"}`}
+                className={`w-4 h-4 flex-shrink-0 ${active ? "text-white" : "text-neutral-400"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -80,24 +75,32 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="px-3 py-4 border-t border-neutral-200">
-        <div className="flex items-center gap-3 px-3 py-2 mb-2">
-          <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+      <div className="px-3 py-4 border-t border-neutral-100">
+        <Link
+          href="/profile"
+          className={[
+            "flex items-center gap-2.5 px-3 py-2 rounded-lg mb-1 transition-colors",
+            pathname.startsWith("/profile")
+              ? "bg-neutral-100"
+              : "hover:bg-neutral-50",
+          ].join(" ")}
+        >
+          <div className="w-7 h-7 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {user?.name?.[0]?.toUpperCase() ?? "U"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-neutral-900 truncate">
+            <p className="text-sm font-medium text-neutral-800 truncate">
               {user?.name}
             </p>
-            <p className="text-xs text-neutral-500 truncate">{user?.email}</p>
+            <p className="text-xs text-neutral-400 truncate">{user?.email}</p>
           </div>
-        </div>
+        </Link>
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-error-600 hover:bg-error-50 transition-colors duration-100"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-neutral-400 hover:text-error-600 hover:bg-error-50 transition-colors"
         >
           <svg
-            className="w-5 h-5"
+            className="w-4 h-4 flex-shrink-0"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -109,7 +112,7 @@ export function Sidebar() {
               d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
             />
           </svg>
-          Logout
+          Sign out
         </button>
       </div>
     </aside>
