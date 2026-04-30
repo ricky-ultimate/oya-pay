@@ -1,4 +1,3 @@
-// frontend/src/lib/api.ts
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
@@ -141,6 +140,27 @@ export interface Invoice {
   followUpAttribution?: FollowUpAttribution | null;
 }
 
+export interface NeedsAttentionEntry {
+  invoiceId: string;
+  invoiceNumber: string;
+  title: string;
+  clientName: string;
+  clientId: string;
+  amount: number;
+  daysOverdue: number;
+  reason: "no_sequence" | "failed_send" | "sequence_paused";
+}
+
+export interface NextFollowUp {
+  invoiceId: string;
+  invoiceNumber: string;
+  title: string;
+  clientName: string;
+  template: string;
+  channel: string;
+  scheduledAt: string;
+}
+
 export interface DashboardStats {
   overview: {
     totalInvoices: number;
@@ -148,6 +168,9 @@ export interface DashboardStats {
     outstandingAmount: number;
     totalRecovered: number;
     unprotectedOutstanding: number;
+    pendingCollection: number;
+    atRiskAmount: number;
+    agentsActive: number;
     statusBreakdown: {
       draft: number;
       pending: number;
@@ -157,9 +180,14 @@ export interface DashboardStats {
       cancelled: number;
     };
   };
-  recentInvoices: (Invoice & { client: { name: string } })[];
+  recentInvoices: (Invoice & {
+    client: { name: string };
+    followUpSchedules?: Array<{ id: string; status: string }>;
+  })[];
   monthlyRevenue: { month: string; revenue: number }[];
   topOverdueClients: OverdueClientEntry[];
+  needsAttention: NeedsAttentionEntry[];
+  nextFollowUp: NextFollowUp | null;
 }
 
 export interface CreateClientInput {
