@@ -1,24 +1,24 @@
 export const TEMPLATE_LABELS: Record<string, string> = {
-  INVOICE_SENT: "Invoice Sent",
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
+  INVOICE_SENT: "Invoice sent",
+  PRE_DUE_REMINDER: "Pre-due reminder",
+  FIRST_OVERDUE: "First overdue notice",
+  SECOND_OVERDUE: "Second overdue notice",
+  FINAL_NOTICE: "Final notice",
 };
 
 export const TEMPLATE_LABELS_SHORT: Record<string, string> = {
-  INVOICE_SENT: "Invoice Sent",
+  INVOICE_SENT: "Sent",
   PRE_DUE_REMINDER: "Pre-due",
-  FIRST_OVERDUE: "1st Overdue",
-  SECOND_OVERDUE: "2nd Overdue",
-  FINAL_NOTICE: "Final Notice",
+  FIRST_OVERDUE: "1st overdue",
+  SECOND_OVERDUE: "2nd overdue",
+  FINAL_NOTICE: "Final",
 };
 
 export const TEMPLATE_LABELS_BEST: Record<string, string> = {
-  PRE_DUE_REMINDER: "Pre-due Reminder",
-  FIRST_OVERDUE: "First Overdue Notice",
-  SECOND_OVERDUE: "Second Overdue Notice",
-  FINAL_NOTICE: "Final Notice",
+  PRE_DUE_REMINDER: "Pre-due reminder",
+  FIRST_OVERDUE: "First overdue notice",
+  SECOND_OVERDUE: "Second overdue notice",
+  FINAL_NOTICE: "Final notice",
 };
 
 export const NEEDS_ATTENTION_REASON_LABELS: Record<string, string> = {

@@ -32,12 +32,12 @@ export default function LoginPage() {
         <div className="mb-8 text-center">
           <Link
             href="/"
-            className="text-2xl font-bold tracking-tight text-neutral-900"
+            className="text-xl font-bold tracking-tight text-neutral-900"
             style={{ letterSpacing: "-0.5px" }}
           >
             OyaPay
           </Link>
-          <h1 className="mt-4 text-2xl font-semibold text-neutral-900">
+          <h1 className="mt-4 text-2xl font-bold text-neutral-900 tracking-tight">
             Welcome back
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
@@ -64,15 +64,18 @@ export default function LoginPage() {
             autoComplete="current-password"
             required
           />
-
           {error && (
-            <p className="text-sm text-error-600 bg-error-50 px-3 py-2 rounded-lg">
+            <p className="text-sm text-error-600 bg-error-50 px-3 py-2.5 rounded-lg">
               {error}
             </p>
           )}
-
-          <Button type="submit" loading={loading} className="w-full mt-2">
-            Sign In
+          <Button
+            type="submit"
+            loading={loading}
+            size="lg"
+            className="w-full mt-1"
+          >
+            Sign in
           </Button>
         </form>
 
@@ -80,9 +83,9 @@ export default function LoginPage() {
           Don&apos;t have an account?{" "}
           <Link
             href="/register"
-            className="text-primary-600 font-medium hover:underline"
+            className="text-primary-600 font-semibold hover:underline"
           >
-            Sign up
+            Create one
           </Link>
         </p>
       </div>

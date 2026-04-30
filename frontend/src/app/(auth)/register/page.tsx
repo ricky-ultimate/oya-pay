@@ -35,11 +35,11 @@ export default function RegisterPage() {
         ...(form.phone && { phone: form.phone }),
       });
     } catch (err: unknown) {
-      const message =
+      setError(
         err instanceof Error
           ? err.message
-          : "Registration failed. Please try again.";
-      setError(message);
+          : "Registration failed. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -51,22 +51,22 @@ export default function RegisterPage() {
         <div className="mb-8 text-center">
           <Link
             href="/"
-            className="text-2xl font-bold tracking-tight text-neutral-900"
+            className="text-xl font-bold tracking-tight text-neutral-900"
             style={{ letterSpacing: "-0.5px" }}
           >
             OyaPay
           </Link>
-          <h1 className="mt-4 text-2xl font-semibold text-neutral-900">
+          <h1 className="mt-4 text-2xl font-bold text-neutral-900 tracking-tight">
             Create your account
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Start getting paid faster
+            Start getting paid on time
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
-            label="Full Name"
+            label="Full name"
             type="text"
             value={form.name}
             onChange={update("name")}
@@ -88,13 +88,13 @@ export default function RegisterPage() {
             type="password"
             value={form.password}
             onChange={update("password")}
-            placeholder="Min. 8 characters"
+            placeholder="Minimum 8 characters"
             required
             autoComplete="new-password"
             minLength={8}
           />
           <Input
-            label="Business Name (optional)"
+            label="Business name (optional)"
             type="text"
             value={form.businessName}
             onChange={update("businessName")}
@@ -106,18 +106,21 @@ export default function RegisterPage() {
             type="tel"
             value={form.phone}
             onChange={update("phone")}
-            placeholder="+234 800 000 0000"
+            placeholder="08012345678"
             autoComplete="tel"
           />
-
           {error && (
-            <p className="text-sm text-error-600 bg-error-50 px-3 py-2 rounded-lg">
+            <p className="text-sm text-error-600 bg-error-50 px-3 py-2.5 rounded-lg">
               {error}
             </p>
           )}
-
-          <Button type="submit" loading={loading} className="w-full mt-2">
-            Create Account
+          <Button
+            type="submit"
+            loading={loading}
+            size="lg"
+            className="w-full mt-1"
+          >
+            Create account
           </Button>
         </form>
 
@@ -125,7 +128,7 @@ export default function RegisterPage() {
           Already have an account?{" "}
           <Link
             href="/login"
-            className="text-primary-600 font-medium hover:underline"
+            className="text-primary-600 font-semibold hover:underline"
           >
             Sign in
           </Link>
