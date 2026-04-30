@@ -12,6 +12,7 @@ import {
   getFollowUpWhatsAppTemplate,
 } from "./followup.templates";
 import type { TemplateData } from "./followup.templates";
+import { ENV } from "../constants/env";
 import logger from "../utils/logger.utils";
 
 export interface FollowUpStep {
@@ -150,6 +151,7 @@ export const markOverdueInvoices = async (): Promise<void> => {
 };
 
 const buildTemplateData = (invoice: {
+  id: string;
   invoiceNumber: string;
   total: unknown;
   currency: string;
@@ -165,6 +167,7 @@ const buildTemplateData = (invoice: {
     amount: Number(invoice.total).toLocaleString("en-NG"),
     currency: invoice.currency,
     dueDate: new Date(invoice.dueDate).toLocaleDateString("en-NG"),
+    trackingPixelUrl: `${ENV.APP_URL}/api/track/open/${invoice.id}`,
   };
 
   if (invoice.user.businessName !== null) {
@@ -172,7 +175,7 @@ const buildTemplateData = (invoice: {
   }
 
   if (invoice.paystackRef !== null) {
-    data.payLink = `https://paystack.com/pay/${invoice.paystackRef}`;
+    data.payLink = `${ENV.APP_URL}/api/track/click/${invoice.id}`;
   }
 
   return data;
@@ -258,6 +261,7 @@ export const triggerScheduledFollowUp = async (
     data: {
       invoiceId: invoice.id,
       channel: schedule.channel,
+      template: schedule.template,
       message,
       status: success ? "SENT" : "FAILED",
     },
@@ -310,6 +314,7 @@ export const escalateFollowUp = async (
     data: {
       invoiceId,
       channel,
+      template,
       message,
       status: success ? "SENT" : "FAILED",
     },
@@ -370,6 +375,7 @@ export const processDueFollowUps = async (): Promise<void> => {
       data: {
         invoiceId: invoice.id,
         channel: schedule.channel,
+        template: schedule.template,
         message,
         status: success ? "SENT" : "FAILED",
       },
