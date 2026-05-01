@@ -4,6 +4,21 @@ import type { StringValue } from "ms";
 import prisma from "../../config/db.config";
 import { ENV } from "../../constants/env";
 import { RegisterInput, LoginInput, UpdateProfileInput } from "./auth.schema";
+import { createUserInstance } from "../../services/whatsapp.service";
+import { verifySubaccountCode } from "../../services/paystack.service";
+
+const USER_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  businessName: true,
+  phone: true,
+  logoUrl: true,
+  createdAt: true,
+  paystackSubaccountCode: true,
+  paystackSubaccountActive: true,
+  ultramsgInstanceId: true,
+} as const;
 
 const generateAccessToken = (userId: string): string => {
   if (!ENV.JWT_ACCESS_SECRET) throw new Error("JWT_ACCESS_SECRET is not set");
@@ -42,32 +57,26 @@ export const registerUser = async (input: RegisterInput) => {
       email: input.email,
       password: hashed,
       businessName: input.businessName ?? null,
-      phone: input.phone ?? null,
+      phone: input.phone,
     },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      businessName: true,
-      phone: true,
-      logoUrl: true,
-      createdAt: true,
-    },
+    select: { id: true, name: true, email: true, businessName: true },
   });
+
+  const instance = await createUserInstance(user.id, input.phone);
+  if (instance) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ultramsgInstanceId: instance.instanceId,
+        ultramsgToken: instance.token,
+      },
+    });
+  }
 
   const accessToken = generateAccessToken(user.id);
   const refreshToken = await generateAndStoreRefreshToken(user.id);
 
-  return {
-    accessToken,
-    refreshToken,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      businessName: user.businessName,
-    },
-  };
+  return { accessToken, refreshToken, user };
 };
 
 export const loginUser = async (input: LoginInput) => {
@@ -120,21 +129,18 @@ export const logoutUser = async (token: string): Promise<void> => {
 export const getMe = async (userId: string) =>
   prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      businessName: true,
-      phone: true,
-      logoUrl: true,
-      createdAt: true,
-    },
+    select: USER_SELECT,
   });
 
 export const updateProfile = async (
   userId: string,
   input: UpdateProfileInput,
 ) => {
+  if (input.paystackSubaccountCode) {
+    const valid = await verifySubaccountCode(input.paystackSubaccountCode);
+    if (!valid) throw new Error("Invalid Paystack subaccount code");
+  }
+
   return prisma.user.update({
     where: { id: userId },
     data: {
@@ -142,17 +148,13 @@ export const updateProfile = async (
       ...(input.businessName !== undefined && {
         businessName: input.businessName ?? null,
       }),
-      ...(input.phone !== undefined && { phone: input.phone ?? null }),
+      ...(input.phone !== undefined && { phone: input.phone ?? undefined }),
       ...(input.logoUrl !== undefined && { logoUrl: input.logoUrl ?? null }),
+      ...(input.paystackSubaccountCode !== undefined && {
+        paystackSubaccountCode: input.paystackSubaccountCode ?? null,
+        paystackSubaccountActive: !!input.paystackSubaccountCode,
+      }),
     },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      businessName: true,
-      phone: true,
-      logoUrl: true,
-      updatedAt: true,
-    },
+    select: USER_SELECT,
   });
 };

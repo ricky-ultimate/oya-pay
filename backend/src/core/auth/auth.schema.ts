@@ -5,7 +5,9 @@ export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   businessName: z.string().optional(),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .min(10, "A valid phone number is required for WhatsApp delivery"),
 });
 
 export const loginSchema = z.object({
@@ -18,6 +20,8 @@ export const updateProfileSchema = z.object({
   businessName: z.string().optional(),
   phone: z.string().optional(),
   logoUrl: z.string().url().optional(),
+  paystackSubaccountCode: z.string().optional(),
+  paystackSubaccountActive: z.boolean().optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
