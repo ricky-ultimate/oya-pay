@@ -25,7 +25,7 @@ function PayoutSetupCard({
   useEffect(() => {
     if (code === subaccountCode) return;
     Promise.resolve().then(() => setCode(subaccountCode));
-  }, [subaccountCode]);
+  }, [subaccountCode, code]);
 
   return (
     <div className="bg-white rounded-xl border border-neutral-200 p-5 flex flex-col gap-4">
