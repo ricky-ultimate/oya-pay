@@ -289,6 +289,7 @@ export const sendInvoice = async (
       reference: `OYAPAY-${invoice.invoiceNumber}-${Date.now()}`,
       metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
       callbackUrl: `${ENV.APP_URL}/api/webhooks/paystack`,
+      subaccountCode: invoice.user.paystackSubaccountCode,
     });
 
     if (payment) {
@@ -335,6 +336,8 @@ export const sendInvoice = async (
     results["whatsapp"] = await sendWhatsAppMessage(
       invoice.client.phone,
       message,
+      invoice.user.ultramsgInstanceId,
+      invoice.user.ultramsgToken,
     );
 
     await prisma.followUpLog.create({
@@ -411,7 +414,7 @@ export const getOrRegeneratePaymentLink = async (
 ): Promise<{ authorizationUrl: string; reference: string }> => {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, userId },
-    include: { client: true },
+    include: { client: true, user: true },
   });
 
   if (!invoice) throw new Error("Invoice not found");
@@ -438,6 +441,7 @@ export const getOrRegeneratePaymentLink = async (
     reference: `OYAPAY-${invoice.invoiceNumber}-${Date.now()}`,
     metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
     callbackUrl: `${ENV.APP_URL}/api/webhooks/paystack`,
+    subaccountCode: invoice.user.paystackSubaccountCode,
   });
 
   if (!payment) throw new Error("Failed to generate payment link");
