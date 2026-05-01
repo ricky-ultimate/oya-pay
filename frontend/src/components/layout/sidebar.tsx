@@ -32,17 +32,40 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="hidden lg:flex flex-col w-56 h-screen bg-white border-r border-neutral-100 fixed left-0 top-0 z-[1020]">
-      <div className="px-5 py-5">
-        <span
-          className="text-lg font-bold tracking-tight text-neutral-900"
-          style={{ letterSpacing: "-0.5px" }}
-        >
-          OyaPay
-        </span>
+    <aside
+      className="hidden lg:flex flex-col w-56 h-screen bg-white border-r border-neutral-100 fixed left-0 top-0 z-[1020]"
+      style={{ boxShadow: "1px 0 0 0 #F3F4F6" }}
+    >
+      <div className="px-5 h-16 flex items-center border-b border-neutral-100">
+        <Link href="/dashboard" className="flex items-center gap-2.5 group">
+          <div className="w-7 h-7 rounded-lg bg-primary-500 flex items-center justify-center transition-transform group-hover:scale-105">
+            <svg
+              className="w-4 h-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
+          </div>
+          <span
+            className="text-base font-bold tracking-tight text-neutral-900"
+            style={{ letterSpacing: "-0.4px" }}
+          >
+            OyaPay
+          </span>
+        </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-2 flex flex-col gap-0.5">
+      <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
+        <p className="px-3 py-1 text-[10px] font-semibold text-neutral-400 uppercase tracking-widest mb-1">
+          Menu
+        </p>
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
@@ -50,14 +73,14 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={[
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                 active
-                  ? "bg-neutral-900 text-white"
-                  : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800",
+                  ? "bg-neutral-900 text-white shadow-sm"
+                  : "text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800",
               ].join(" ")}
             >
               <svg
-                className={`w-4 h-4 flex-shrink-0 ${active ? "text-white" : "text-neutral-400"}`}
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${active ? "text-white" : "text-neutral-400"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -70,6 +93,9 @@ export function Sidebar() {
                 />
               </svg>
               {item.label}
+              {active && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white/40" />
+              )}
             </Link>
           );
         })}
@@ -79,17 +105,17 @@ export function Sidebar() {
         <Link
           href="/profile"
           className={[
-            "flex items-center gap-2.5 px-3 py-2 rounded-lg mb-1 transition-colors",
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all duration-150",
             pathname.startsWith("/profile")
               ? "bg-neutral-100"
               : "hover:bg-neutral-50",
           ].join(" ")}
         >
-          <div className="w-7 h-7 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ring-2 ring-primary-100">
             {user?.name?.[0]?.toUpperCase() ?? "U"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-neutral-800 truncate">
+            <p className="text-sm font-semibold text-neutral-800 truncate">
               {user?.name}
             </p>
             <p className="text-xs text-neutral-400 truncate">{user?.email}</p>
@@ -97,7 +123,7 @@ export function Sidebar() {
         </Link>
         <button
           onClick={logout}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-neutral-400 hover:text-error-600 hover:bg-error-50 transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-neutral-400 hover:text-error-600 hover:bg-error-50 transition-all duration-150"
         >
           <svg
             className="w-4 h-4 flex-shrink-0"
