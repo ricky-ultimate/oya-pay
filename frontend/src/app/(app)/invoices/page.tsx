@@ -34,24 +34,34 @@ function InvoicesPageInner() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
-          Invoices
-        </h1>
+        <div>
+          <h1
+            className="text-2xl font-bold text-neutral-900 tracking-tight"
+            style={{ letterSpacing: "-0.5px" }}
+          >
+            Invoices
+          </h1>
+          <p className="text-sm text-neutral-400 mt-0.5">
+            {isLoading
+              ? "Loading..."
+              : `${invoices.length} invoice${invoices.length !== 1 ? "s" : ""}`}
+          </p>
+        </div>
         <Link href="/invoices/create">
-          <Button>New invoice</Button>
+          <Button size="md">New invoice</Button>
         </Link>
       </div>
 
-      <div className="bg-white rounded-xl border border-neutral-200">
-        <div className="px-4 py-3 border-b border-neutral-100 flex gap-1 overflow-x-auto">
+      <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-neutral-100 flex gap-1 overflow-x-auto scrollbar-none">
           {STATUS_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setStatus(opt.value)}
               className={[
-                "flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                "flex-shrink-0 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all",
                 status === opt.value
-                  ? "bg-neutral-900 text-white"
+                  ? "bg-neutral-900 text-white shadow-sm"
                   : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700",
               ].join(" ")}
             >
@@ -63,7 +73,7 @@ function InvoicesPageInner() {
         {isLoading ? (
           <div className="p-4 flex flex-col gap-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 rounded-lg" />
+              <Skeleton key={i} className="h-[72px] rounded-xl" />
             ))}
           </div>
         ) : invoices.length === 0 ? (
@@ -88,37 +98,38 @@ function InvoicesPageInner() {
               const pendingFollowUps =
                 invoice.followUpSchedules?.filter((s) => s.status === "PENDING")
                   .length ?? 0;
+              const isOverdue = invoice.status === "OVERDUE";
               return (
                 <Link
                   key={invoice.id}
                   href={`/invoices/${invoice.id}`}
-                  className="flex items-center justify-between px-5 py-4 hover:bg-neutral-50 transition-colors"
+                  className="flex items-center justify-between px-5 py-4 hover:bg-neutral-50/80 transition-colors group"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3.5 min-w-0">
                     <StatusBadge status={invoice.status as InvoiceStatus} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-neutral-900 truncate">
+                        <p className="text-sm font-semibold text-neutral-900 truncate">
                           {invoice.title}
                         </p>
                         {pendingFollowUps > 0 && (
-                          <span className="hidden sm:inline-flex items-center h-4 px-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-semibold flex-shrink-0">
-                            {pendingFollowUps} follow-up
-                            {pendingFollowUps !== 1 ? "s" : ""}
+                          <span className="hidden sm:inline-flex items-center h-4 px-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-semibold border border-primary-100 flex-shrink-0">
+                            {pendingFollowUps} scheduled
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-neutral-400 truncate">
-                        {invoice.client?.name} · {invoice.invoiceNumber}
+                      <p className="text-xs text-neutral-400 truncate mt-0.5">
+                        {invoice.client?.name} &middot; {invoice.invoiceNumber}
                       </p>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-4">
-                    <p className="text-sm font-semibold text-neutral-900 tabular-nums">
+                    <p
+                      className={`text-sm font-bold tabular-nums ${isOverdue ? "text-error-600" : "text-neutral-900"}`}
+                    >
                       {formatNaira(Number(invoice.total))}
                     </p>
-                    <p className="text-xs text-neutral-400">
-                      Due{" "}
+                    <p className="text-xs text-neutral-400 mt-0.5">
                       {new Date(invoice.dueDate).toLocaleDateString("en-NG", {
                         day: "numeric",
                         month: "short",
