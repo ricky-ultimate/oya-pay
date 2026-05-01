@@ -26,15 +26,17 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   return (
     <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div
-        className="absolute inset-0 bg-neutral-900/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-neutral-900/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col max-h-[90dvh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
-          <h2 className="text-base font-semibold text-neutral-900">{title}</h2>
+      <div className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[92dvh] overflow-hidden">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-neutral-100 flex-shrink-0">
+          <h2 className="text-base font-bold text-neutral-900 tracking-tight">
+            {title}
+          </h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all"
           >
             <svg
               className="w-4 h-4"
@@ -53,7 +55,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         </div>
         <div className="overflow-y-auto flex-1 px-5 py-5">{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-neutral-100">
+          <div className="flex items-center justify-end gap-2.5 px-5 py-4 border-t border-neutral-100 flex-shrink-0 bg-neutral-50/50">
             {footer}
           </div>
         )}
@@ -91,17 +93,13 @@ export function ConfirmModal({
           <Button variant="secondary" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button
-            onClick={onConfirm}
-            loading={loading}
-            className="bg-error-600 hover:bg-error-700"
-          >
+          <Button variant="danger" onClick={onConfirm} loading={loading}>
             {confirmLabel}
           </Button>
         </>
       }
     >
-      <p className="text-sm text-neutral-600">{message}</p>
+      <p className="text-sm text-neutral-600 leading-relaxed">{message}</p>
     </Modal>
   );
 }
