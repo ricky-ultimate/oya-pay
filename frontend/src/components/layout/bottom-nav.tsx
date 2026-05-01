@@ -21,7 +21,7 @@ const navItems = [
   },
   {
     href: "/analytics",
-    label: "Stats",
+    label: "Analytics",
     d: "M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z",
   },
   {
@@ -35,25 +35,32 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[1020] bg-white border-t border-neutral-200 h-14 safe-area-bottom">
-      <div className="flex h-full">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[1020] bg-white/95 backdrop-blur-md border-t border-neutral-100 h-16">
+      <div className="flex h-full px-2">
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
+              className="flex-1 flex flex-col items-center justify-center gap-1 transition-all"
             >
-              <svg
-                className={`w-5 h-5 ${active ? "text-neutral-900" : "text-neutral-400"}`}
-                viewBox="0 0 20 20"
-                fill="currentColor"
+              <div
+                className={[
+                  "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                  active ? "bg-neutral-900" : "bg-transparent",
+                ].join(" ")}
               >
-                <path fillRule="evenodd" d={item.d} clipRule="evenodd" />
-              </svg>
+                <svg
+                  className={`w-4 h-4 transition-colors ${active ? "text-white" : "text-neutral-400"}`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path fillRule="evenodd" d={item.d} clipRule="evenodd" />
+                </svg>
+              </div>
               <span
-                className={`text-[10px] leading-none font-medium ${active ? "text-neutral-900" : "text-neutral-400"}`}
+                className={`text-[10px] leading-none font-medium transition-colors ${active ? "text-neutral-900" : "text-neutral-400"}`}
               >
                 {item.label}
               </span>

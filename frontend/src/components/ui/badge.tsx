@@ -4,14 +4,29 @@ const STATUS_CONFIG: Record<
   InvoiceStatus,
   { label: string; className: string }
 > = {
-  DRAFT: { label: "Draft", className: "bg-neutral-100 text-neutral-600" },
-  PENDING: { label: "Pending", className: "bg-warning-50 text-warning-700" },
-  PARTIAL: { label: "Partial", className: "bg-primary-50 text-primary-700" },
-  PAID: { label: "Paid", className: "bg-success-50 text-success-700" },
-  OVERDUE: { label: "Overdue", className: "bg-error-50 text-error-700" },
+  DRAFT: {
+    label: "Draft",
+    className: "bg-neutral-100 text-neutral-600 border border-neutral-200",
+  },
+  PENDING: {
+    label: "Pending",
+    className: "bg-warning-50 text-warning-700 border border-warning-200",
+  },
+  PARTIAL: {
+    label: "Partial",
+    className: "bg-primary-50 text-primary-700 border border-primary-200",
+  },
+  PAID: {
+    label: "Paid",
+    className: "bg-success-50 text-success-700 border border-success-200",
+  },
+  OVERDUE: {
+    label: "Overdue",
+    className: "bg-error-50 text-error-700 border border-error-200",
+  },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-neutral-100 text-neutral-400",
+    className: "bg-neutral-100 text-neutral-400 border border-neutral-200",
   },
 };
 

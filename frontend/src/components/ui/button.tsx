@@ -11,19 +11,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-neutral-900 text-white hover:bg-neutral-800 active:bg-neutral-950",
+    "bg-neutral-900 text-white hover:bg-neutral-800 active:bg-neutral-950 shadow-sm",
   secondary:
-    "bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50 active:bg-neutral-100",
+    "bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50 active:bg-neutral-100 shadow-xs",
   ghost:
     "bg-transparent text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900",
   danger:
-    "bg-error-500 text-white hover:bg-error-600 active:bg-error-700 disabled:opacity-50",
+    "bg-error-600 text-white hover:bg-error-700 active:bg-error-800 shadow-sm",
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: "h-9 px-3 text-sm rounded-md",
-  md: "h-11 px-5 text-sm rounded-lg",
-  lg: "h-12 px-6 text-base rounded-lg",
+  sm: "h-8 px-3 text-xs rounded-lg gap-1.5",
+  md: "h-10 px-4 text-sm rounded-xl gap-2",
+  lg: "h-11 px-5 text-sm rounded-xl gap-2",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -44,7 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={[
-          "inline-flex items-center justify-center font-medium transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:pointer-events-none select-none",
+          "inline-flex items-center justify-center font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none",
           variantClasses[variant],
           sizeClasses[size],
           className,
@@ -52,9 +52,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading ? (
-          <span className="inline-flex items-center gap-2">
+          <>
             <svg
-              className="animate-spin h-4 w-4"
+              className="animate-spin h-3.5 w-3.5 flex-shrink-0"
               viewBox="0 0 24 24"
               fill="none"
             >
@@ -73,7 +73,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               />
             </svg>
             {children}
-          </span>
+          </>
         ) : (
           children
         )}

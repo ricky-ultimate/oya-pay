@@ -8,10 +8,10 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
-    <div className="px-5 py-16 flex flex-col items-center text-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
+    <div className="px-5 py-16 flex flex-col items-center text-center gap-4">
+      <div className="w-12 h-12 rounded-2xl bg-neutral-100 flex items-center justify-center">
         <svg
-          className="w-5 h-5 text-neutral-400"
+          className="w-6 h-6 text-neutral-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -25,12 +25,14 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
         </svg>
       </div>
       <div>
-        <p className="text-sm font-semibold text-neutral-700">{title}</p>
+        <p className="text-sm font-bold text-neutral-800">{title}</p>
         {description && (
-          <p className="text-sm text-neutral-400 mt-0.5">{description}</p>
+          <p className="text-sm text-neutral-400 mt-1 max-w-xs leading-relaxed">
+            {description}
+          </p>
         )}
       </div>
-      {action && <div className="mt-1">{action}</div>}
+      {action && <div>{action}</div>}
     </div>
   );
 }

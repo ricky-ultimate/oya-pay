@@ -15,12 +15,12 @@ export function SectionCard({
 }: SectionCardProps) {
   return (
     <div
-      className={`bg-white rounded-xl border border-neutral-200 overflow-hidden ${className}`}
+      className={`bg-white rounded-2xl border border-neutral-200 overflow-hidden ${className}`}
     >
       {(title || headerRight) && (
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-neutral-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
           {title && (
-            <h2 className="text-sm font-semibold text-neutral-900">{title}</h2>
+            <h2 className="text-sm font-bold text-neutral-900">{title}</h2>
           )}
           {headerRight && <div>{headerRight}</div>}
         </div>

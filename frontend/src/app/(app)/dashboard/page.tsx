@@ -27,16 +27,65 @@ import {
   NEEDS_ATTENTION_REASON_LABELS,
 } from "@/utils/constants";
 
+function PageHeader() {
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  return (
+    <div className="flex items-start justify-between">
+      <div>
+        <p className="text-sm text-neutral-400 font-medium">
+          {greeting} &middot;{" "}
+          {now.toLocaleDateString("en-NG", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
+        <h1
+          className="text-2xl font-bold text-neutral-900 mt-0.5 tracking-tight"
+          style={{ letterSpacing: "-0.5px" }}
+        >
+          Dashboard
+        </h1>
+      </div>
+      <Link
+        href="/invoices/create"
+        className="inline-flex items-center gap-2 h-9 px-4 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-800 transition-colors"
+      >
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 4.5v15m7.5-7.5h-15"
+          />
+        </svg>
+        New invoice
+      </Link>
+    </div>
+  );
+}
+
 function MetricCard({
   label,
   value,
   subtext,
   variant = "default",
+  trend,
 }: {
   label: string;
   value: string;
   subtext?: string;
   variant?: "default" | "success" | "warning" | "error" | "neutral";
+  trend?: { direction: "up" | "down"; label: string };
 }) {
   const styles = {
     default: {
@@ -66,14 +115,14 @@ function MetricCard({
     neutral: {
       container: "bg-neutral-50 border-neutral-200",
       label: "text-neutral-500",
-      value: "text-neutral-700",
+      value: "text-neutral-600",
       subtext: "text-neutral-400",
     },
   }[variant];
 
   return (
     <div
-      className={`rounded-xl border p-5 flex flex-col gap-3 ${styles.container}`}
+      className={`rounded-2xl border p-5 flex flex-col gap-4 transition-shadow hover:shadow-sm ${styles.container}`}
     >
       <p
         className={`text-xs font-semibold uppercase tracking-wide ${styles.label}`}
@@ -82,13 +131,38 @@ function MetricCard({
       </p>
       <div>
         <p
-          className={`text-2xl font-bold tabular-nums leading-none ${styles.value}`}
+          className={`text-2xl font-bold tabular-nums leading-none tracking-tight ${styles.value}`}
+          style={{ letterSpacing: "-0.5px" }}
         >
           {value}
         </p>
-        {subtext && (
-          <p className={`text-xs mt-1.5 ${styles.subtext}`}>{subtext}</p>
-        )}
+        <div className="flex items-center gap-2 mt-1.5">
+          {subtext && <p className={`text-xs ${styles.subtext}`}>{subtext}</p>}
+          {trend && (
+            <span
+              className={`inline-flex items-center gap-0.5 text-xs font-medium ${trend.direction === "up" ? "text-success-600" : "text-error-600"}`}
+            >
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d={
+                    trend.direction === "up"
+                      ? "M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"
+                      : "M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"
+                  }
+                />
+              </svg>
+              {trend.label}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -97,15 +171,21 @@ function MetricCard({
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-6">
-      <Skeleton className="h-8 w-40" />
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-7 w-32" />
+        </div>
+        <Skeleton className="h-9 w-28 rounded-xl" />
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+          <Skeleton key={i} className="h-32 rounded-2xl" />
         ))}
       </div>
-      <Skeleton className="h-14 rounded-xl" />
-      <Skeleton className="h-56 rounded-xl" />
-      <Skeleton className="h-48 rounded-xl" />
+      <Skeleton className="h-16 rounded-2xl" />
+      <Skeleton className="h-60 rounded-2xl" />
+      <Skeleton className="h-48 rounded-2xl" />
     </div>
   );
 }
@@ -116,28 +196,28 @@ function NeedsAttentionRow({
   isLoading,
 }: {
   entry: NeedsAttentionEntry;
-  onAction: (entry: NeedsAttentionEntry) => void;
+  onAction: (e: NeedsAttentionEntry) => void;
   isLoading: boolean;
 }) {
   const router = useRouter();
   const isPaused = entry.reason === "sequence_paused";
 
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-neutral-50 transition-colors">
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-neutral-50/80 transition-colors group">
       <div
         className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
         onClick={() => router.push(`/invoices/${entry.invoiceId}`)}
       >
-        <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 text-xs font-bold flex-shrink-0">
+        <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 text-xs font-bold flex-shrink-0 ring-1 ring-neutral-200">
           {entry.clientName[0]?.toUpperCase()}
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-medium text-neutral-900 truncate">
+            <p className="text-sm font-semibold text-neutral-900 truncate">
               {entry.clientName}
             </p>
             {entry.daysOverdue > 0 && (
-              <span className="text-xs text-error-600 font-semibold flex-shrink-0">
+              <span className="text-xs text-error-600 font-semibold bg-error-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
                 {entry.daysOverdue}d overdue
               </span>
             )}
@@ -150,25 +230,25 @@ function NeedsAttentionRow({
           </div>
         </div>
       </div>
-      <p className="text-sm font-semibold text-neutral-900 tabular-nums flex-shrink-0">
+      <p className="text-sm font-bold text-neutral-900 tabular-nums flex-shrink-0">
         {formatNaira(entry.amount)}
       </p>
       <button
         onClick={() => onAction(entry)}
         disabled={isLoading}
         className={[
-          "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex-shrink-0 disabled:opacity-50",
+          "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-shrink-0 disabled:opacity-50",
           isPaused
-            ? "bg-success-50 text-success-700 hover:bg-success-100"
-            : "bg-primary-50 text-primary-700 hover:bg-primary-100",
+            ? "bg-success-50 text-success-700 hover:bg-success-100 border border-success-200"
+            : "bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200",
         ].join(" ")}
       >
         <svg
-          className="w-3.5 h-3.5"
+          className="w-3 h-3"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
-          strokeWidth={2}
+          strokeWidth={2.5}
         >
           <path
             strokeLinecap="round"
@@ -195,24 +275,24 @@ function RecentInvoiceRow({
   const hasActiveSequence = (invoice.followUpSchedules?.length ?? 0) > 0;
 
   return (
-    <div className="flex items-center justify-between px-5 py-3.5 hover:bg-neutral-50 transition-colors group">
+    <div className="flex items-center justify-between px-5 py-4 hover:bg-neutral-50/80 transition-colors group">
       <Link
         href={`/invoices/${invoice.id}`}
         className="flex items-center gap-3 min-w-0 flex-1"
       >
         <StatusBadge status={invoice.status as InvoiceStatus} />
         <div className="min-w-0">
-          <p className="text-sm font-medium text-neutral-900 truncate">
+          <p className="text-sm font-semibold text-neutral-900 truncate">
             {invoice.title}
           </p>
           <p className="text-xs text-neutral-500 truncate">
-            {invoice.client.name} · {invoice.invoiceNumber}
+            {invoice.client.name} &middot; {invoice.invoiceNumber}
           </p>
         </div>
       </Link>
       <div className="flex items-center gap-3 flex-shrink-0 ml-4">
         <div className="text-right hidden sm:block">
-          <p className="text-sm font-semibold text-neutral-900 tabular-nums">
+          <p className="text-sm font-bold text-neutral-900 tabular-nums">
             {formatNaira(Number(invoice.total))}
           </p>
           <p className="text-xs text-neutral-400">
@@ -227,7 +307,7 @@ function RecentInvoiceRow({
           <button
             onClick={() => onChase(invoice.id)}
             disabled={isLoading}
-            className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 disabled:opacity-50"
+            className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 border border-primary-200 disabled:opacity-50"
           >
             Chase
           </button>
@@ -279,30 +359,18 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-7">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
-          Dashboard
-        </h1>
-        <p className="text-sm text-neutral-400 mt-0.5">
-          {new Date().toLocaleDateString("en-NG", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-      </div>
+      <PageHeader />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="To collect"
           value={formatNaira(pendingCollection)}
-          subtext={`${(overview?.statusBreakdown.pending ?? 0) + (overview?.statusBreakdown.partial ?? 0) + (overview?.statusBreakdown.overdue ?? 0)} invoices outstanding`}
+          subtext={`${(overview?.statusBreakdown.pending ?? 0) + (overview?.statusBreakdown.partial ?? 0) + (overview?.statusBreakdown.overdue ?? 0)} open invoices`}
         />
         <MetricCard
           label="At risk"
           value={formatNaira(atRiskAmount)}
-          subtext="Overdue 14+ days"
+          subtext="14+ days overdue"
           variant={atRiskAmount > 0 ? "error" : "neutral"}
         />
         <MetricCard
@@ -314,7 +382,7 @@ export default function DashboardPage() {
         <MetricCard
           label="Recovered"
           value={formatNaira(totalRecovered)}
-          subtext="Via automated reminders"
+          subtext="Via reminders"
           variant={totalRecovered > 0 ? "success" : "neutral"}
         />
       </div>
@@ -322,10 +390,14 @@ export default function DashboardPage() {
       {nextFollowUp && (
         <Link
           href={`/invoices/${nextFollowUp.invoiceId}/followups`}
-          className="bg-primary-50 border border-primary-100 rounded-xl px-5 py-4 flex items-center justify-between gap-4 hover:bg-primary-100 transition-colors"
+          className="bg-white border border-primary-100 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 hover:bg-primary-50/50 transition-colors group"
+          style={{
+            boxShadow:
+              "0 0 0 1px rgba(14,165,233,0.08), 0 2px 8px rgba(14,165,233,0.06)",
+          }}
         >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
+          <div className="flex items-center gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
               <svg
                 className="w-4 h-4 text-primary-600"
                 fill="none"
@@ -341,14 +413,15 @@ export default function DashboardPage() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-primary-900">
+              <p className="text-sm font-semibold text-neutral-900">
                 Next:{" "}
                 {TEMPLATE_LABELS[nextFollowUp.template] ??
                   nextFollowUp.template}{" "}
-                → {nextFollowUp.clientName}
+                &rarr; {nextFollowUp.clientName}
               </p>
-              <p className="text-xs text-primary-600 mt-0.5">
-                {nextFollowUp.invoiceNumber} · {nextFollowUp.channel} ·{" "}
+              <p className="text-xs text-neutral-500 mt-0.5">
+                {nextFollowUp.invoiceNumber} &middot; {nextFollowUp.channel}{" "}
+                &middot;{" "}
                 {new Date(nextFollowUp.scheduledAt).toLocaleDateString(
                   "en-NG",
                   { weekday: "short", day: "numeric", month: "short" },
@@ -357,7 +430,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <svg
-            className="w-4 h-4 text-primary-400 flex-shrink-0"
+            className="w-4 h-4 text-neutral-300 group-hover:text-primary-400 flex-shrink-0 transition-colors"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -373,19 +446,20 @@ export default function DashboardPage() {
       )}
 
       {needsAttention.length > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200">
+        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-neutral-900">
+            <div className="flex items-center gap-2.5">
+              <div className="w-2 h-2 rounded-full bg-error-500 animate-pulse" />
+              <h2 className="text-sm font-bold text-neutral-900">
                 Needs attention
               </h2>
-              <span className="inline-flex items-center h-5 px-1.5 rounded-full bg-error-50 text-error-700 text-xs font-bold">
+              <span className="inline-flex items-center h-5 px-1.5 rounded-full bg-error-50 text-error-700 text-xs font-bold border border-error-100">
                 {needsAttention.length}
               </span>
             </div>
             <Link
               href="/invoices"
-              className="text-xs text-primary-600 font-medium hover:underline"
+              className="text-xs text-primary-600 font-semibold hover:underline"
             >
               View all
             </Link>
@@ -404,10 +478,22 @@ export default function DashboardPage() {
       )}
 
       {monthlyRevenue.length > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200 p-5">
-          <h2 className="text-sm font-semibold text-neutral-900 mb-4">
-            Monthly revenue
-          </h2>
+        <div className="bg-white rounded-2xl border border-neutral-200 p-5">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">Revenue</h2>
+              <p className="text-xs text-neutral-400 mt-0.5">Last 6 months</p>
+            </div>
+            <div className="text-right">
+              <p
+                className="text-lg font-bold text-neutral-900 tabular-nums"
+                style={{ letterSpacing: "-0.5px" }}
+              >
+                {formatNaira(monthlyRevenue.reduce((s, m) => s + m.revenue, 0))}
+              </p>
+              <p className="text-xs text-neutral-400">Total collected</p>
+            </div>
+          </div>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
@@ -424,11 +510,15 @@ export default function DashboardPage() {
                     x2="0"
                     y2="1"
                   >
-                    <stop offset="5%" stopColor="#0EA5E9" stopOpacity={0.08} />
-                    <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#0EA5E9" stopOpacity={0.12} />
+                    <stop offset="100%" stopColor="#0EA5E9" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#F3F4F6"
+                  vertical={false}
+                />
                 <XAxis
                   dataKey="month"
                   tick={{ fontSize: 11, fill: "#9CA3AF" }}
@@ -446,10 +536,11 @@ export default function DashboardPage() {
                   formatter={(value) => [formatNaira(Number(value)), "Revenue"]}
                   contentStyle={{
                     fontSize: 12,
-                    borderRadius: 8,
+                    borderRadius: 12,
                     border: "1px solid #E5E7EB",
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
                   }}
+                  cursor={{ stroke: "#E5E7EB", strokeWidth: 1 }}
                 />
                 <Area
                   type="monotone"
@@ -458,6 +549,7 @@ export default function DashboardPage() {
                   strokeWidth={2}
                   fill="url(#revenueGradient)"
                   dot={false}
+                  activeDot={{ r: 4, fill: "#0EA5E9", strokeWidth: 0 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -465,24 +557,39 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-neutral-200">
+      <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
-          <h2 className="text-sm font-semibold text-neutral-900">
+          <h2 className="text-sm font-bold text-neutral-900">
             Recent invoices
           </h2>
           <Link
             href="/invoices"
-            className="text-xs text-primary-600 font-medium hover:underline"
+            className="text-xs text-primary-600 font-semibold hover:underline"
           >
             View all
           </Link>
         </div>
         {recentInvoices.length === 0 ? (
-          <div className="px-5 py-12 text-center">
+          <div className="px-5 py-14 text-center">
+            <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3">
+              <svg
+                className="w-5 h-5 text-neutral-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12"
+                />
+              </svg>
+            </div>
             <p className="text-sm text-neutral-500 mb-3">No invoices yet.</p>
             <Link
               href="/invoices/create"
-              className="text-sm font-semibold text-primary-600 hover:underline"
+              className="text-sm font-bold text-primary-600 hover:underline"
             >
               Create your first invoice
             </Link>
