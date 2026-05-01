@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, buildDefaultFollowUpSteps } from "@/lib/api";
+import { api } from "@/lib/api";
 import type { Client, ClientStats, CreateInvoiceInput } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
