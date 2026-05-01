@@ -17,6 +17,7 @@ export interface InitializePaymentOptions {
   reference: string;
   metadata?: Record<string, unknown>;
   callbackUrl?: string;
+  subaccountCode?: string | null;
 }
 
 export interface InitializePaymentResult {
@@ -29,13 +30,29 @@ export const initializePayment = async (
   options: InitializePaymentOptions,
 ): Promise<InitializePaymentResult | null> => {
   try {
-    const response = await paystackClient.post("/transaction/initialize", {
+    const body: Record<string, unknown> = {
       email: options.email,
       amount: Math.round(options.amount * 100),
       reference: options.reference,
       metadata: options.metadata,
       callback_url: options.callbackUrl,
-    });
+    };
+
+    if (options.subaccountCode) {
+      body["split"] = {
+        type: "percentage",
+        subaccounts: [
+          {
+            subaccount: options.subaccountCode,
+            share: 95,
+          },
+        ],
+        bearer_type: "subaccount",
+        bearer_subaccount: options.subaccountCode,
+      };
+    }
+
+    const response = await paystackClient.post("/transaction/initialize", body);
 
     return {
       authorizationUrl: response.data.data.authorization_url as string,
@@ -56,6 +73,17 @@ export const verifyPayment = async (reference: string): Promise<boolean> => {
     return (response.data.data.status as string) === "success";
   } catch (error) {
     logger("Paystack verify error:", error);
+    return false;
+  }
+};
+
+export const verifySubaccountCode = async (
+  subaccountCode: string,
+): Promise<boolean> => {
+  try {
+    const response = await paystackClient.get(`/subaccount/${subaccountCode}`);
+    return response.data.status === true;
+  } catch {
     return false;
   }
 };
