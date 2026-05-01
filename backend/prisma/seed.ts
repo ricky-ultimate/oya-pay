@@ -55,8 +55,6 @@ async function main() {
 
   console.log(`Created user: ${user.email}`);
 
-  // ─── CLIENT 1: Model client — always pays on time ────────────────────────────
-
   const clientOnTime = await prisma.client.create({
     data: {
       userId: user.id,
@@ -67,7 +65,6 @@ async function main() {
     },
   });
 
-  // Invoice 1a: Paid early
   const inv1a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-001",
@@ -83,6 +80,7 @@ async function main() {
       total: 350000,
       sentAt: subtractDays(now, 60),
       paidAt: subtractDays(now, 33),
+      paystackRef: "OYAPAY-INV-SEED-001-SEED",
       items: {
         create: [
           {
@@ -119,7 +117,6 @@ async function main() {
     },
   });
 
-  // Invoice 1b: Paid on time
   const inv1b = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-002",
@@ -135,6 +132,7 @@ async function main() {
       total: 480000,
       sentAt: subtractDays(now, 45),
       paidAt: subtractDays(now, 15),
+      paystackRef: "OYAPAY-INV-SEED-002-SEED",
       items: {
         create: [
           {
@@ -164,7 +162,6 @@ async function main() {
     },
   });
 
-  // Invoice 1c: Currently pending, due in 7 days
   await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-003",
@@ -179,6 +176,7 @@ async function main() {
       tax: 0,
       total: 120000,
       sentAt: subtractDays(now, 7),
+      paystackRef: "OYAPAY-INV-SEED-003-SEED",
       items: {
         create: [
           {
@@ -202,8 +200,6 @@ async function main() {
     `Created client: ${clientOnTime.name} (on-time payer, 2 paid, 1 pending)`,
   );
 
-  // ─── CLIENT 2: Sometimes late payer ──────────────────────────────────────────
-
   const clientSometimesLate = await prisma.client.create({
     data: {
       userId: user.id,
@@ -214,7 +210,6 @@ async function main() {
     },
   });
 
-  // Invoice 2a: Paid 10 days late
   const inv2a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-004",
@@ -230,6 +225,7 @@ async function main() {
       total: 200000,
       sentAt: subtractDays(now, 90),
       paidAt: subtractDays(now, 50),
+      paystackRef: "OYAPAY-INV-SEED-004-SEED",
       items: {
         create: [
           {
@@ -259,7 +255,6 @@ async function main() {
     },
   });
 
-  // Invoice 2b: Paid on time
   const inv2b = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-005",
@@ -275,6 +270,7 @@ async function main() {
       total: 150000,
       sentAt: subtractDays(now, 70),
       paidAt: subtractDays(now, 40),
+      paystackRef: "OYAPAY-INV-SEED-005-SEED",
       items: {
         create: [
           {
@@ -304,7 +300,6 @@ async function main() {
     },
   });
 
-  // Invoice 2c: Partial payment — 60% paid, rest overdue by 5 days
   const inv2c = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-006",
@@ -319,6 +314,7 @@ async function main() {
       tax: 0,
       total: 300000,
       sentAt: subtractDays(now, 20),
+      paystackRef: "OYAPAY-INV-SEED-006-SEED",
       items: {
         create: [
           {
@@ -359,7 +355,7 @@ async function main() {
     data: {
       invoiceId: inv2c.id,
       channel: FollowUpChannel.EMAIL,
-      message: `Invoice INV-SEED-006 from Adeyemi Creative Studio`,
+      message: "Invoice INV-SEED-006 from Adeyemi Creative Studio",
       status: "SENT",
       sentAt: subtractDays(now, 20),
     },
@@ -399,8 +395,6 @@ async function main() {
     `Created client: ${clientSometimesLate.name} (sometimes late, 2 paid, 1 partial)`,
   );
 
-  // ─── CLIENT 3: Consistently late payer ───────────────────────────────────────
-
   const clientLate = await prisma.client.create({
     data: {
       userId: user.id,
@@ -411,7 +405,6 @@ async function main() {
     },
   });
 
-  // Invoice 3a: Paid 18 days late
   const inv3a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-007",
@@ -427,6 +420,7 @@ async function main() {
       total: 500000,
       sentAt: subtractDays(now, 120),
       paidAt: subtractDays(now, 72),
+      paystackRef: "OYAPAY-INV-SEED-007-SEED",
       items: {
         create: [
           {
@@ -462,7 +456,6 @@ async function main() {
     },
   });
 
-  // Invoice 3b: Paid 22 days late
   const inv3b = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-008",
@@ -478,6 +471,7 @@ async function main() {
       total: 180000,
       sentAt: subtractDays(now, 80),
       paidAt: subtractDays(now, 28),
+      paystackRef: "OYAPAY-INV-SEED-008-SEED",
       items: {
         create: [
           {
@@ -507,7 +501,6 @@ async function main() {
     },
   });
 
-  // Invoice 3c: Currently overdue by 14 days — has been chased twice
   const inv3c = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-009",
@@ -522,6 +515,7 @@ async function main() {
       tax: 0,
       total: 250000,
       sentAt: subtractDays(now, 44),
+      paystackRef: "OYAPAY-INV-SEED-009-SEED",
       items: {
         create: [
           {
@@ -545,7 +539,7 @@ async function main() {
     data: {
       invoiceId: inv3c.id,
       channel: FollowUpChannel.EMAIL,
-      message: `Invoice INV-SEED-009 from Adeyemi Creative Studio`,
+      message: "Invoice INV-SEED-009 from Adeyemi Creative Studio",
       status: "SENT",
       sentAt: subtractDays(now, 44),
     },
@@ -565,7 +559,7 @@ async function main() {
     data: {
       invoiceId: inv3c.id,
       channel: FollowUpChannel.EMAIL,
-      message: `Invoice INV-SEED-009 is now overdue`,
+      message: "Invoice INV-SEED-009 is now overdue",
       status: "SENT",
       sentAt: subtractDays(now, 13),
     },
@@ -616,8 +610,6 @@ async function main() {
     `Created client: ${clientLate.name} (consistently late, 2 paid, 1 overdue 14d)`,
   );
 
-  // ─── CLIENT 4: Severely overdue — no phone, email only ───────────────────────
-
   const clientGhost = await prisma.client.create({
     data: {
       userId: user.id,
@@ -627,7 +619,6 @@ async function main() {
     },
   });
 
-  // Invoice 4a: Paid very late (30 days)
   const inv4a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-010",
@@ -643,6 +634,7 @@ async function main() {
       total: 100000,
       sentAt: subtractDays(now, 150),
       paidAt: subtractDays(now, 90),
+      paystackRef: "OYAPAY-INV-SEED-010-SEED",
       items: {
         create: [
           {
@@ -666,7 +658,6 @@ async function main() {
     },
   });
 
-  // Invoice 4b: Severely overdue — 35 days past due, never paid, final notice sent
   const inv4b = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-011",
@@ -682,6 +673,7 @@ async function main() {
       total: 150000,
       sentAt: subtractDays(now, 65),
       notes: "As agreed, payment due 30 days from invoice date.",
+      paystackRef: "OYAPAY-INV-SEED-011-SEED",
       items: {
         create: [
           {
@@ -705,7 +697,7 @@ async function main() {
     data: {
       invoiceId: inv4b.id,
       channel: FollowUpChannel.EMAIL,
-      message: `Invoice INV-SEED-011 from Adeyemi Creative Studio`,
+      message: "Invoice INV-SEED-011 from Adeyemi Creative Studio",
       status: "SENT",
       sentAt: subtractDays(now, 65),
     },
@@ -715,7 +707,7 @@ async function main() {
     data: {
       invoiceId: inv4b.id,
       channel: FollowUpChannel.EMAIL,
-      message: `Reminder: Invoice INV-SEED-011 due soon`,
+      message: "Reminder: Invoice INV-SEED-011 due soon",
       status: "SENT",
       sentAt: subtractDays(now, 38),
     },
@@ -725,7 +717,7 @@ async function main() {
     data: {
       invoiceId: inv4b.id,
       channel: FollowUpChannel.EMAIL,
-      message: `Invoice INV-SEED-011 is now overdue`,
+      message: "Invoice INV-SEED-011 is now overdue",
       status: "SENT",
       sentAt: subtractDays(now, 34),
     },
@@ -735,7 +727,7 @@ async function main() {
     data: {
       invoiceId: inv4b.id,
       channel: FollowUpChannel.EMAIL,
-      message: `Second notice: Invoice INV-SEED-011 overdue`,
+      message: "Second notice: Invoice INV-SEED-011 overdue",
       status: "SENT",
       sentAt: subtractDays(now, 28),
     },
@@ -745,7 +737,7 @@ async function main() {
     data: {
       invoiceId: inv4b.id,
       channel: FollowUpChannel.EMAIL,
-      message: `Final notice: Invoice INV-SEED-011`,
+      message: "Final notice: Invoice INV-SEED-011",
       status: "SENT",
       sentAt: subtractDays(now, 21),
     },
@@ -788,7 +780,6 @@ async function main() {
     ],
   });
 
-  // Invoice 4c: Draft — not yet sent
   await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-012",
@@ -819,8 +810,6 @@ async function main() {
     `Created client: ${clientGhost.name} (severely overdue, no phone, full chase history)`,
   );
 
-  // ─── CLIENT 5: New client — no history, single pending invoice ────────────────
-
   const clientNew = await prisma.client.create({
     data: {
       userId: user.id,
@@ -845,6 +834,7 @@ async function main() {
       tax: 0,
       total: 220000,
       sentAt: subtractDays(now, 3),
+      paystackRef: "OYAPAY-INV-SEED-013-SEED",
       items: {
         create: [
           {
@@ -867,8 +857,6 @@ async function main() {
   console.log(
     `Created client: ${clientNew.name} (new client, 1 pending invoice)`,
   );
-
-  // ─── CLIENT 6: Cancelled invoice + one paid ───────────────────────────────────
 
   const clientMixed = await prisma.client.create({
     data: {
@@ -895,6 +883,7 @@ async function main() {
       total: 800000,
       sentAt: subtractDays(now, 55),
       paidAt: subtractDays(now, 24),
+      paystackRef: "OYAPAY-INV-SEED-014-SEED",
       items: {
         create: [
           {
