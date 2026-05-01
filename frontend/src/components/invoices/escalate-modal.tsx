@@ -53,11 +53,14 @@ export function EscalateModal({
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (open) {
-      setTemplate(initialTemplate ?? "FIRST_OVERDUE");
-      setChannel(initialChannel ?? (hasPhone ? "WHATSAPP" : "EMAIL"));
+    if (!open) return;
+    const nextTemplate = initialTemplate ?? "FIRST_OVERDUE";
+    const nextChannel = initialChannel ?? (hasPhone ? "WHATSAPP" : "EMAIL");
+    Promise.resolve().then(() => {
+      setTemplate(nextTemplate);
+      setChannel(nextChannel);
       setNote("");
-    }
+    });
   }, [open, initialChannel, initialTemplate, hasPhone]);
 
   const { data: preview, isLoading: previewLoading } = useQuery({
