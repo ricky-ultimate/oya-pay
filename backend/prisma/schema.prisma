@@ -9,18 +9,22 @@ datasource db {
 }
 
 model User {
-    id            String         @id @default(cuid())
-    email         String         @unique
-    password      String
-    name          String
-    businessName  String?
-    phone         String?
-    logoUrl       String?
-    createdAt     DateTime       @default(now())
-    updatedAt     DateTime       @updatedAt
-    clients       Client[]
-    invoices      Invoice[]
-    refreshTokens RefreshToken[]
+    id                       String         @id @default(cuid())
+    email                    String         @unique
+    password                 String
+    name                     String
+    businessName             String?
+    phone                    String
+    logoUrl                  String?
+    ultramsgInstanceId       String?
+    ultramsgToken            String?
+    paystackSubaccountCode   String?
+    paystackSubaccountActive Boolean        @default(false)
+    createdAt                DateTime       @default(now())
+    updatedAt                DateTime       @updatedAt
+    clients                  Client[]
+    invoices                 Invoice[]
+    refreshTokens            RefreshToken[]
 }
 
 model RefreshToken {
