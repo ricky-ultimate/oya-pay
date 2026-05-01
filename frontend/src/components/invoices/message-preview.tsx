@@ -129,7 +129,13 @@ export function MessagePreviewButton({
                 </div>
                 <div
                   className="p-4 text-sm leading-relaxed max-h-64 overflow-y-auto"
-                  dangerouslySetInnerHTML={{ __html: preview.email.html }}
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      preview.email.html +
+                      (note.trim()
+                        ? `<p style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:14px;">${note.trim()}</p>`
+                        : ""),
+                  }}
                 />
               </div>
             )}
@@ -140,6 +146,7 @@ export function MessagePreviewButton({
                   <div className="max-w-xs bg-green-100 rounded-lg rounded-tr-none px-3 py-2 shadow-sm">
                     <p className="text-sm text-neutral-900 whitespace-pre-wrap">
                       {preview.whatsapp}
+                      {note.trim() ? `\n\n${note.trim()}` : ""}
                     </p>
                     <p className="text-right text-xs text-neutral-400 mt-1">
                       Preview
