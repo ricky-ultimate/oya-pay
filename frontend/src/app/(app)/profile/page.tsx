@@ -23,7 +23,8 @@ function PayoutSetupCard({
   const [code, setCode] = useState(subaccountCode);
 
   useEffect(() => {
-    setCode(subaccountCode);
+    if (code === subaccountCode) return;
+    Promise.resolve().then(() => setCode(subaccountCode));
   }, [subaccountCode]);
 
   return (
@@ -128,26 +129,38 @@ function WhatsAppStatusCard({ instanceId }: { instanceId: string | null }) {
   );
 }
 
+interface ProfileForm {
+  name: string;
+  businessName: string;
+  phone: string;
+  logoUrl: string;
+}
+
 export default function ProfilePage() {
   const { user, setUser, logout } = useAuth();
   const { toast } = useToast();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ProfileForm>({
     name: "",
     businessName: "",
     phone: "",
     logoUrl: "",
   });
+  const [formHydrated, setFormHydrated] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    setForm({
+    if (!user || formHydrated) return;
+    const next: ProfileForm = {
       name: user.name ?? "",
       businessName: user.businessName ?? "",
       phone: user.phone ?? "",
       logoUrl: user.logoUrl ?? "",
+    };
+    Promise.resolve().then(() => {
+      setForm(next);
+      setFormHydrated(true);
     });
-  }, [user]);
+  }, [user, formHydrated]);
 
   const updateMutation = useMutation({
     mutationFn: (data: UpdateProfileInput) => api.updateProfile(data),
@@ -180,7 +193,7 @@ export default function ProfilePage() {
   };
 
   const update =
-    (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    (key: keyof ProfileForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   return (
