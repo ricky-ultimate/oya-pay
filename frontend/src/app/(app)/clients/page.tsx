@@ -144,21 +144,20 @@ export default function ClientsPage() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const update =
-    (key: keyof ClientFormData) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    (key: keyof ClientFormData) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900">
+        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
           Clients
         </h1>
-        <Button onClick={openCreate}>Add Client</Button>
+        <Button onClick={openCreate}>Add client</Button>
       </div>
 
       <div className="bg-white rounded-xl border border-neutral-200">
-        <div className="px-4 py-4 border-b border-neutral-200">
+        <div className="px-4 py-3 border-b border-neutral-100">
           <Input
             placeholder="Search by name or email..."
             value={search}
@@ -167,8 +166,8 @@ export default function ClientsPage() {
         </div>
 
         {isLoading ? (
-          <div className="p-4 flex flex-col gap-3">
-            {Array.from({ length: 3 }).map((_, i) => (
+          <div className="p-4 flex flex-col gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-16 rounded-lg" />
             ))}
           </div>
@@ -182,7 +181,7 @@ export default function ClientsPage() {
             }
             action={
               !search ? (
-                <Button onClick={openCreate}>Add Client</Button>
+                <Button onClick={openCreate}>Add client</Button>
               ) : undefined
             }
           />
@@ -197,7 +196,7 @@ export default function ClientsPage() {
                   href={`/clients/${client.id}`}
                   className="flex items-center gap-3 flex-1 min-w-0"
                 >
-                  <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-sm font-semibold flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-sm font-bold flex-shrink-0">
                     {client.name[0]?.toUpperCase()}
                   </div>
                   <div className="min-w-0">
@@ -206,8 +205,8 @@ export default function ClientsPage() {
                         {client.name}
                       </p>
                       {client.phone && (
-                        <span className="inline-flex items-center gap-0.5 text-xs text-brand-green flex-shrink-0">
-                          <IconWhatsApp className="w-3 h-3" /> WA
+                        <span className="inline-flex items-center gap-0.5 text-xs text-brand-green flex-shrink-0 font-medium">
+                          <IconWhatsApp className="w-3 h-3" />
                         </span>
                       )}
                       {client.reliabilityScore &&
@@ -218,35 +217,33 @@ export default function ClientsPage() {
                           />
                         )}
                     </div>
-                    <p className="text-xs text-neutral-500 truncate">
+                    <p className="text-xs text-neutral-400 truncate">
                       {client.email}
                     </p>
                   </div>
                 </Link>
-                <div className="hidden sm:flex items-center gap-2 text-xs text-neutral-500 flex-shrink-0">
-                  <span>
-                    {client._count?.invoices ?? 0} invoice
-                    {(client._count?.invoices ?? 0) !== 1 ? "s" : ""}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
+                <span className="hidden sm:block text-xs text-neutral-400 flex-shrink-0">
+                  {client._count?.invoices ?? 0} invoice
+                  {(client._count?.invoices ?? 0) !== 1 ? "s" : ""}
+                </span>
+                <div className="flex items-center gap-0.5">
                   <button
                     onClick={() => openEdit(client)}
-                    className="p-1.5 rounded text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                    aria-label="Edit client"
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                    aria-label="Edit"
                   >
                     <IconEdit />
                   </button>
                   <button
                     onClick={() => setDeleteId(client.id)}
-                    className="p-1.5 rounded text-neutral-400 hover:text-error-600 hover:bg-error-50 transition-colors"
-                    aria-label="Delete client"
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-error-600 hover:bg-error-50 transition-colors"
+                    aria-label="Delete"
                   >
                     <IconTrash />
                   </button>
                   <Link
                     href={`/clients/${client.id}`}
-                    className="p-1.5 rounded text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                   >
                     <IconChevronRight />
                   </Link>
@@ -260,7 +257,7 @@ export default function ClientsPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editTarget ? "Edit Client" : "Add Client"}
+        title={editTarget ? "Edit client" : "Add client"}
         footer={
           <>
             <Button
@@ -271,7 +268,7 @@ export default function ClientsPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} loading={isSaving}>
-              {editTarget ? "Save Changes" : "Add Client"}
+              {editTarget ? "Save changes" : "Add client"}
             </Button>
           </>
         }
@@ -298,23 +295,18 @@ export default function ClientsPage() {
               type="tel"
               value={form.phone}
               onChange={update("phone")}
-              placeholder="+234 801 000 0000"
+              placeholder="08012345678"
             />
             {form.phone && phoneValidation.level !== "none" && (
               <p
-                className={[
-                  "text-xs px-1",
-                  phoneValidation.level === "invalid"
-                    ? "text-error-600"
-                    : "text-warning-600",
-                ].join(" ")}
+                className={`text-xs px-1 ${phoneValidation.level === "invalid" ? "text-error-600" : "text-warning-600"}`}
               >
                 {phoneValidation.message}
               </p>
             )}
             {form.phone && phoneValidation.level === "none" && (
               <p className="text-xs text-brand-green px-1">
-                WhatsApp delivery enabled for this client.
+                WhatsApp delivery enabled.
               </p>
             )}
           </div>
@@ -331,8 +323,8 @@ export default function ClientsPage() {
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
-        title="Delete Client"
-        message="This client will be deleted. This action cannot be undone."
+        title="Delete client"
+        message="This client will be permanently deleted."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
       />

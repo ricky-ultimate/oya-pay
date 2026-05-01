@@ -1,26 +1,28 @@
 import { ReactNode } from "react";
 
 interface SectionCardProps {
-  title?: string;
   children: ReactNode;
-  className?: string;
+  title?: string;
   headerRight?: ReactNode;
+  className?: string;
 }
 
 export function SectionCard({
-  title,
   children,
-  className = "",
+  title,
   headerRight,
+  className = "",
 }: SectionCardProps) {
   return (
     <div
-      className={`bg-white rounded-xl border border-neutral-200 ${className}`}
+      className={`bg-white rounded-xl border border-neutral-200 overflow-hidden ${className}`}
     >
-      {title && (
-        <div className="px-5 py-3.5 border-b border-neutral-200 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-900">{title}</h2>
-          {headerRight}
+      {(title || headerRight) && (
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-neutral-100">
+          {title && (
+            <h2 className="text-sm font-semibold text-neutral-900">{title}</h2>
+          )}
+          {headerRight && <div>{headerRight}</div>}
         </div>
       )}
       {children}
@@ -28,14 +30,12 @@ export function SectionCard({
   );
 }
 
-interface SectionCardBodyProps {
-  children: ReactNode;
-  className?: string;
-}
-
 export function SectionCardBody({
   children,
   className = "",
-}: SectionCardBodyProps) {
-  return <div className={`p-5 ${className}`}>{children}</div>;
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={`px-5 py-5 ${className}`}>{children}</div>;
 }

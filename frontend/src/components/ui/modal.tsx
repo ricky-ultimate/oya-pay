@@ -1,7 +1,6 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { Button } from "./button";
 
 interface ModalProps {
@@ -10,81 +9,56 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
-  size?: "sm" | "md" | "lg";
 }
 
-const sizeClasses = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-2xl",
-};
-
-export function Modal({
-  open,
-  onClose,
-  title,
-  children,
-  footer,
-  size = "md",
-}: ModalProps) {
+export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = "";
-    };
+    return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
-  if (!open || typeof document === "undefined") return null;
+  if (!open) return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[1050] flex items-end sm:items-center justify-center">
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-neutral-900/50 backdrop-blur-sm"
         onClick={onClose}
-        aria-hidden="true"
       />
-      <div
-        className={`relative bg-white w-full ${sizeClasses[size]} rounded-t-2xl sm:rounded-2xl shadow-xl mx-0 sm:mx-4 max-h-[90vh] flex flex-col`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
-          <h2
-            id="modal-title"
-            className="text-lg font-semibold text-neutral-900"
-          >
-            {title}
-          </h2>
+      <div className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col max-h-[90dvh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
+          <h2 className="text-base font-semibold text-neutral-900">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors"
-            aria-label="Close modal"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
           >
-            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
               />
             </svg>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        <div className="overflow-y-auto flex-1 px-5 py-5">{children}</div>
         {footer && (
-          <div className="px-6 py-4 border-t border-neutral-200 flex gap-3 justify-end">
+          <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-neutral-100">
             {footer}
           </div>
         )}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }
 
@@ -96,7 +70,6 @@ interface ConfirmModalProps {
   message: string;
   confirmLabel?: string;
   loading?: boolean;
-  danger?: boolean;
 }
 
 export function ConfirmModal({
@@ -106,24 +79,22 @@ export function ConfirmModal({
   title,
   message,
   confirmLabel = "Confirm",
-  loading,
-  danger = true,
+  loading = false,
 }: ConfirmModalProps) {
   return (
     <Modal
       open={open}
       onClose={onClose}
       title={title}
-      size="sm"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
           <Button
-            variant={danger ? "danger" : "primary"}
             onClick={onConfirm}
             loading={loading}
+            className="bg-error-600 hover:bg-error-700"
           >
             {confirmLabel}
           </Button>

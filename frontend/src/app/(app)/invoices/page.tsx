@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNaira } from "@/utils/format";
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
+const STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "DRAFT", label: "Draft" },
   { value: "PENDING", label: "Pending" },
@@ -34,16 +34,16 @@ function InvoicesPageInner() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900">
+        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
           Invoices
         </h1>
         <Link href="/invoices/create">
-          <Button>New Invoice</Button>
+          <Button>New invoice</Button>
         </Link>
       </div>
 
       <div className="bg-white rounded-xl border border-neutral-200">
-        <div className="px-4 py-3 border-b border-neutral-200 flex gap-2 overflow-x-auto">
+        <div className="px-4 py-3 border-b border-neutral-100 flex gap-1 overflow-x-auto">
           {STATUS_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -51,7 +51,7 @@ function InvoicesPageInner() {
               className={[
                 "flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                 status === opt.value
-                  ? "bg-primary-50 text-primary-700"
+                  ? "bg-neutral-900 text-white"
                   : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700",
               ].join(" ")}
             >
@@ -61,8 +61,8 @@ function InvoicesPageInner() {
         </div>
 
         {isLoading ? (
-          <div className="p-4 flex flex-col gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="p-4 flex flex-col gap-2">
+            {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-16 rounded-lg" />
             ))}
           </div>
@@ -77,7 +77,7 @@ function InvoicesPageInner() {
             action={
               !status ? (
                 <Link href="/invoices/create">
-                  <Button>New Invoice</Button>
+                  <Button>New invoice</Button>
                 </Link>
               ) : undefined
             }
@@ -88,7 +88,6 @@ function InvoicesPageInner() {
               const pendingFollowUps =
                 invoice.followUpSchedules?.filter((s) => s.status === "PENDING")
                   .length ?? 0;
-
               return (
                 <Link
                   key={invoice.id}
@@ -103,13 +102,13 @@ function InvoicesPageInner() {
                           {invoice.title}
                         </p>
                         {pendingFollowUps > 0 && (
-                          <span className="hidden sm:inline-flex items-center h-4 px-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-medium flex-shrink-0">
+                          <span className="hidden sm:inline-flex items-center h-4 px-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-semibold flex-shrink-0">
                             {pendingFollowUps} follow-up
                             {pendingFollowUps !== 1 ? "s" : ""}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-neutral-500 truncate">
+                      <p className="text-xs text-neutral-400 truncate">
                         {invoice.client?.name} · {invoice.invoiceNumber}
                       </p>
                     </div>
