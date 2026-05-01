@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!api.hasTokens()) {
-      setLoading(false);
+      Promise.resolve().then(() => setLoading(false));
       return;
     }
     api
