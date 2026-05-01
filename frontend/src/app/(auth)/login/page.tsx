@@ -105,48 +105,6 @@ function AuthIllustration() {
             ))}
           </div>
         </div>
-
-        <div className="mt-auto">
-          <div className="border border-white/10 rounded-2xl p-5 bg-white/5 backdrop-blur-sm">
-            <div
-              className="w-full h-40 rounded-xl bg-neutral-800/50 border border-white/10 flex items-center justify-center mb-4"
-              aria-label="Image placeholder: A split-screen mockup showing the OyaPay dashboard on the left (dark theme, showing revenue charts and collection metrics) and a WhatsApp conversation on the right showing an automated payment reminder being sent to a Nigerian client named 'Amaka'. The image should feel premium, modern, and convey automation at work."
-            >
-              <div className="text-center px-4">
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center mx-auto mb-2">
-                  <svg
-                    className="w-4 h-4 text-white/40"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z"
-                    />
-                  </svg>
-                </div>
-                <p className="text-white/30 text-xs">Dashboard preview image</p>
-              </div>
-            </div>
-            <p className="text-white/50 text-xs italic leading-relaxed">
-              "OyaPay handles my follow-ups while I sleep. I recovered ₦480,000
-              last month with zero effort."
-            </p>
-            <div className="flex items-center gap-2 mt-3">
-              <div
-                className="w-7 h-7 rounded-full bg-neutral-700 flex-shrink-0"
-                aria-label="Image placeholder: Small circular profile photo of a Nigerian female creative professional, late 20s, confident and warm expression, professional attire"
-              />
-              <div>
-                <p className="text-white/70 text-xs font-medium">Ngozi E.</p>
-                <p className="text-white/40 text-xs">Video editor, Abuja</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
