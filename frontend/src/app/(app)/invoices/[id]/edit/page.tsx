@@ -19,6 +19,40 @@ import {
 import { InvoiceTotals } from "@/components/invoices/invoice-totals";
 import { useToast } from "@/components/ui/toast";
 
+interface FormState {
+  title: string;
+  clientId: string;
+  dueDate: string;
+  tax: string;
+  notes: string;
+  items: LineItem[];
+}
+
+const emptyForm: FormState = {
+  title: "",
+  clientId: "",
+  dueDate: "",
+  tax: "0",
+  notes: "",
+  items: [],
+};
+
+function invoiceToForm(invoice: Invoice): FormState {
+  return {
+    title: invoice.title,
+    clientId: invoice.clientId,
+    dueDate: invoice.dueDate.split("T")[0] ?? "",
+    tax: String(Number(invoice.tax)),
+    notes: invoice.notes ?? "",
+    items:
+      invoice.items?.map((i) => ({
+        description: i.description,
+        quantity: String(Number(i.quantity)),
+        unitPrice: String(Number(i.unitPrice)),
+      })) ?? [],
+  };
+}
+
 export default function EditInvoicePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -35,31 +69,20 @@ export default function EditInvoicePage() {
     queryFn: () => api.getClients(),
   });
 
-  const [title, setTitle] = useState("");
-  const [clientId, setClientId] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [tax, setTax] = useState("0");
-  const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<LineItem[]>([]);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (!invoice) return;
-    setTitle(invoice.title);
-    setClientId(invoice.clientId);
-    setDueDate(invoice.dueDate.split("T")[0]);
-    setTax(String(Number(invoice.tax)));
-    setNotes(invoice.notes ?? "");
-    setItems(
-      invoice.items?.map((i) => ({
-        description: i.description,
-        quantity: String(Number(i.quantity)),
-        unitPrice: String(Number(i.unitPrice)),
-      })) ?? [],
-    );
-  }, [invoice]);
+    if (!invoice || hydrated) return;
+    const next = invoiceToForm(invoice);
+    Promise.resolve().then(() => {
+      setForm(next);
+      setHydrated(true);
+    });
+  }, [invoice, hydrated]);
 
-  const taxPercent = parseFloat(tax) || 0;
-  const subtotal = items.reduce(
+  const taxPercent = parseFloat(form.tax) || 0;
+  const subtotal = form.items.reduce(
     (sum, item) =>
       sum +
       (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0),
@@ -81,18 +104,28 @@ export default function EditInvoicePage() {
 
   const handleSave = () => {
     updateMutation.mutate({
-      title,
-      clientId,
-      dueDate: new Date(dueDate).toISOString(),
+      title: form.title,
+      clientId: form.clientId,
+      dueDate: new Date(form.dueDate).toISOString(),
       tax: taxPercent > 0 ? taxAmount : 0,
-      notes: notes || undefined,
-      items: items.map((i) => ({
+      notes: form.notes || undefined,
+      items: form.items.map((i) => ({
         description: i.description,
         quantity: parseFloat(i.quantity) || 1,
         unitPrice: parseFloat(i.unitPrice) || 0,
       })),
     });
   };
+
+  const update =
+    <K extends keyof FormState>(key: K) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >,
+    ) => {
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    };
 
   if (isLoading) {
     return (
@@ -130,15 +163,11 @@ export default function EditInvoicePage() {
           <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
             Invoice Details
           </h2>
-          <Input
-            label="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <Input label="Title" value={form.title} onChange={update("title")} />
           <Select
             label="Client"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
+            value={form.clientId}
+            onChange={update("clientId")}
           >
             <option value="">Select a client</option>
             {clients.map((c) => (
@@ -150,8 +179,8 @@ export default function EditInvoicePage() {
           <Input
             label="Due Date"
             type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            value={form.dueDate}
+            onChange={update("dueDate")}
           />
         </SectionCardBody>
       </SectionCard>
@@ -161,7 +190,10 @@ export default function EditInvoicePage() {
           <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
             Line Items
           </h2>
-          <LineItemsEditor items={items} onChange={setItems} />
+          <LineItemsEditor
+            items={form.items}
+            onChange={(items) => setForm((prev) => ({ ...prev, items }))}
+          />
         </SectionCardBody>
       </SectionCard>
 
@@ -176,14 +208,14 @@ export default function EditInvoicePage() {
             min="0"
             max="100"
             step="0.01"
-            value={tax}
-            onChange={(e) => setTax(e.target.value)}
+            value={form.tax}
+            onChange={update("tax")}
             suffix="%"
           />
           <Textarea
             label="Notes (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={form.notes}
+            onChange={update("notes")}
           />
         </SectionCardBody>
       </SectionCard>

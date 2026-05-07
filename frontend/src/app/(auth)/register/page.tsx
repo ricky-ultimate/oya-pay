@@ -142,6 +142,10 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.phone.trim()) {
+      setError("A phone number is required for WhatsApp delivery.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -149,8 +153,8 @@ export default function RegisterPage() {
         name: form.name,
         email: form.email,
         password: form.password,
+        phone: form.phone,
         ...(form.businessName && { businessName: form.businessName }),
-        ...(form.phone && { phone: form.phone }),
       });
     } catch (err: unknown) {
       setError(
@@ -234,6 +238,15 @@ export default function RegisterPage() {
               autoComplete="new-password"
               minLength={8}
             />
+            <Input
+              label="WhatsApp number"
+              type="tel"
+              value={form.phone}
+              onChange={update("phone")}
+              placeholder="08012345678"
+              autoComplete="tel"
+              required
+            />
 
             <div className="pt-1 border-t border-neutral-100">
               <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
@@ -247,14 +260,6 @@ export default function RegisterPage() {
                   onChange={update("businessName")}
                   placeholder="Okeke Designs"
                   autoComplete="organization"
-                />
-                <Input
-                  label="WhatsApp number"
-                  type="tel"
-                  value={form.phone}
-                  onChange={update("phone")}
-                  placeholder="08012345678"
-                  autoComplete="tel"
                 />
               </div>
             </div>

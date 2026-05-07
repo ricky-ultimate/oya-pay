@@ -28,7 +28,6 @@ import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
 import { EscalateModal } from "@/components/invoices/escalate-modal";
 import { EscalateButton } from "@/components/invoices/escalate-button";
 import { InvoiceTimeline } from "@/components/invoices/invoice-timeline";
-import { WhatsAppMockup } from "@/components/ui/whatsapp-mockup";
 import { useToast } from "@/components/ui/toast";
 import { useSendInvoice } from "@/hooks/use-send-invoice";
 import { formatNaira, formatDate } from "@/utils/format";

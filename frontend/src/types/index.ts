@@ -13,6 +13,9 @@ export interface User {
   phone: string | null;
   logoUrl: string | null;
   createdAt: string;
+  paystackSubaccountCode: string | null;
+  paystackSubaccountActive: boolean;
+  ultramsgInstanceId: string | null;
 }
 
 export interface Client {
@@ -249,6 +252,7 @@ export interface UpdateProfileInput {
   businessName?: string;
   phone?: string;
   logoUrl?: string;
+  paystackSubaccountCode?: string;
 }
 
 export interface AuthResponse {

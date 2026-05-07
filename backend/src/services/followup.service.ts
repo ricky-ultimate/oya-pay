@@ -246,7 +246,12 @@ export const triggerScheduledFollowUp = async (
       templateData,
     );
     message = note ? `${defaultMessage}\n\n${note}` : defaultMessage;
-    success = await sendWhatsAppMessage(invoice.client.phone, message);
+    success = await sendWhatsAppMessage(
+      invoice.client.phone,
+      message,
+      invoice.user.ultramsgInstanceId,
+      invoice.user.ultramsgToken,
+    );
   }
 
   await prisma.followUpSchedule.update({
@@ -307,7 +312,12 @@ export const escalateFollowUp = async (
   } else if (channel === FollowUpChannel.WHATSAPP && invoice.client.phone) {
     const defaultMessage = getFollowUpWhatsAppTemplate(template, templateData);
     message = note ? `${defaultMessage}\n\n${note}` : defaultMessage;
-    success = await sendWhatsAppMessage(invoice.client.phone, message);
+    success = await sendWhatsAppMessage(
+      invoice.client.phone,
+      message,
+      invoice.user.ultramsgInstanceId,
+      invoice.user.ultramsgToken,
+    );
   }
 
   await prisma.followUpLog.create({
@@ -360,7 +370,12 @@ export const processDueFollowUps = async (): Promise<void> => {
       invoice.client.phone
     ) {
       message = getFollowUpWhatsAppTemplate(schedule.template, templateData);
-      success = await sendWhatsAppMessage(invoice.client.phone, message);
+      success = await sendWhatsAppMessage(
+        invoice.client.phone,
+        message,
+        invoice.user.ultramsgInstanceId,
+        invoice.user.ultramsgToken,
+      );
     }
 
     await prisma.followUpSchedule.update({
