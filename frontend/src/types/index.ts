@@ -41,15 +41,17 @@ export type ReliabilityScore =
 
 export interface InvoiceItem {
   id: string;
+  invoiceId: string;
   description: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
+  quantity: string | number;
+  unitPrice: string | number;
+  total: string | number;
 }
 
 export interface Payment {
   id: string;
-  amount: number;
+  invoiceId: string;
+  amount: string | number;
   method: string | null;
   reference: string | null;
   note: string | null;
@@ -126,9 +128,9 @@ export interface Invoice {
   dueDate: string;
   issueDate: string;
   currency: string;
-  subtotal: number;
-  tax: number;
-  total: number;
+  subtotal: string | number;
+  tax: string | number;
+  total: string | number;
   notes: string | null;
   paystackRef: string | null;
   sentAt: string | null;
