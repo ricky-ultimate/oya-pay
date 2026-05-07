@@ -80,7 +80,7 @@ export const getInvoices = async (userId: string, status?: string) =>
       _count: { select: { payments: true } },
       followUpSchedules: {
         where: { status: FollowUpStatus.PENDING },
-        select: { id: true },
+        select: { id: true, status: true },
       },
     },
     orderBy: { createdAt: "desc" },
