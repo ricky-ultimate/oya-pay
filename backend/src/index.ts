@@ -34,9 +34,14 @@ for (const key of requiredEnv) {
 
 const app = express();
 
+const corsOrigins =
+  ENV.NODE_ENV === "production"
+    ? [ENV.CLIENT_URL, /\.vercel\.app$/, /\.netlify\.app$/]
+    : [ENV.CLIENT_URL, "http://localhost:3000", "http://localhost:3001"];
+
 app.use(
   cors({
-    origin: ENV.CLIENT_URL,
+    origin: corsOrigins,
     credentials: true,
   }),
 );
