@@ -1,4 +1,8 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
+import axios, {
+  AxiosInstance,
+  InternalAxiosRequestConfig,
+  AxiosError,
+} from "axios";
 import type {
   ApiResponse,
   AuthResponse,
@@ -98,6 +102,40 @@ function coerceApiResponse(data: unknown): void {
   }
 }
 
+function extractErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError<ApiResponse>;
+    const responseData = axiosError.response?.data;
+    if (responseData) {
+      if (
+        Array.isArray(responseData.errors) &&
+        responseData.errors.length > 0
+      ) {
+        const firstError = responseData.errors[0] as
+          | { message?: string }
+          | undefined;
+        if (firstError?.message) return firstError.message;
+      }
+      if (responseData.message) return responseData.message;
+    }
+    if (axiosError.message) return axiosError.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "An unexpected error occurred";
+}
+
+export class ApiError extends Error {
+  status: number;
+  errors: unknown;
+
+  constructor(message: string, status: number, errors?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.errors = errors;
+  }
+}
+
 export const buildDefaultFollowUpSteps = (
   hasPhone: boolean,
 ): FollowUpStepConfig[] => {
@@ -158,8 +196,10 @@ class ApiClient {
         coerceApiResponse(response.data);
         return response;
       },
-      async (error) => {
-        const originalRequest = error.config;
+      async (error: AxiosError<ApiResponse>) => {
+        const originalRequest = error.config as InternalAxiosRequestConfig & {
+          _retry?: boolean;
+        };
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
           try {
@@ -174,7 +214,13 @@ class ApiClient {
             return Promise.reject(error);
           }
         }
-        return Promise.reject(error);
+        const status = error.response?.status ?? 0;
+        const responseData = error.response?.data;
+        throw new ApiError(
+          extractErrorMessage(error),
+          status,
+          responseData?.errors,
+        );
       },
     );
   }
