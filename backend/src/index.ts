@@ -23,6 +23,11 @@ const requiredEnv: (keyof typeof ENV)[] = [
   "JWT_ACCESS_SECRET",
   "JWT_REFRESH_SECRET",
   "DATABASE_URL",
+  "SMTP_HOST",
+  "SMTP_USER",
+  "SMTP_PASS",
+  "SMTP_FROM",
+  "PAYSTACK_SECRET_KEY",
 ];
 
 for (const key of requiredEnv) {
@@ -36,7 +41,14 @@ const app = express();
 
 const corsOrigins =
   ENV.NODE_ENV === "production"
-    ? [ENV.CLIENT_URL, /\.vercel\.app$/, /\.netlify\.app$/]
+    ? [
+        ENV.CLIENT_URL,
+        /\.vercel\.app$/,
+        /\.netlify\.app$/,
+        ...(ENV.ADDITIONAL_ORIGINS
+          ? ENV.ADDITIONAL_ORIGINS.split(",").map((o) => o.trim())
+          : []),
+      ]
     : [ENV.CLIENT_URL, "http://localhost:3000", "http://localhost:3001"];
 
 app.use(
