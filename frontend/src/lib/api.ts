@@ -27,6 +27,77 @@ export * from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001";
 
+const DECIMAL_INVOICE_KEYS = ["subtotal", "tax", "total"] as const;
+
+const DECIMAL_ITEM_KEYS = ["quantity", "unitPrice", "total"] as const;
+
+const DECIMAL_PAYMENT_KEYS = ["amount"] as const;
+
+function coerceInvoice(invoice: Record<string, unknown>): void {
+  for (const key of DECIMAL_INVOICE_KEYS) {
+    if (invoice[key] !== undefined) {
+      invoice[key] = Number(invoice[key]);
+    }
+  }
+  if (Array.isArray(invoice["items"])) {
+    for (const item of invoice["items"] as Record<string, unknown>[]) {
+      for (const key of DECIMAL_ITEM_KEYS) {
+        if (item[key] !== undefined) {
+          item[key] = Number(item[key]);
+        }
+      }
+    }
+  }
+  if (Array.isArray(invoice["payments"])) {
+    for (const payment of invoice["payments"] as Record<string, unknown>[]) {
+      for (const key of DECIMAL_PAYMENT_KEYS) {
+        if (payment[key] !== undefined) {
+          payment[key] = Number(payment[key]);
+        }
+      }
+    }
+  }
+}
+
+function coerceApiResponse(data: unknown): void {
+  if (!data || typeof data !== "object") return;
+  const response = data as Record<string, unknown>;
+  const payload = response["data"];
+
+  if (!payload) return;
+
+  if (Array.isArray(payload)) {
+    for (const item of payload as Record<string, unknown>[]) {
+      if (
+        typeof item === "object" &&
+        item !== null &&
+        "invoiceNumber" in item
+      ) {
+        coerceInvoice(item);
+      }
+      if (
+        typeof item === "object" &&
+        item !== null &&
+        "amount" in item &&
+        "paidAt" in item
+      ) {
+        const payment = item as Record<string, unknown>;
+        payment["amount"] = Number(payment["amount"]);
+      }
+    }
+  } else if (typeof payload === "object" && payload !== null) {
+    const obj = payload as Record<string, unknown>;
+    if ("invoiceNumber" in obj) {
+      coerceInvoice(obj);
+    }
+    if ("recentInvoices" in obj && Array.isArray(obj["recentInvoices"])) {
+      for (const inv of obj["recentInvoices"] as Record<string, unknown>[]) {
+        coerceInvoice(inv);
+      }
+    }
+  }
+}
+
 export const buildDefaultFollowUpSteps = (
   hasPhone: boolean,
 ): FollowUpStepConfig[] => {
@@ -83,7 +154,10 @@ class ApiClient {
     );
 
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        coerceApiResponse(response.data);
+        return response;
+      },
       async (error) => {
         const originalRequest = error.config;
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -245,9 +319,7 @@ class ApiClient {
     const params = status ? { status } : {};
     const response = await this.client.get<ApiResponse<Invoice[]>>(
       "/api/invoices",
-      {
-        params,
-      },
+      { params },
     );
     return response.data.data!;
   }
