@@ -17,4 +17,5 @@ export const ENV = {
   ULTRAMSG_TOKEN: process.env["ULTRAMSG_TOKEN"] ?? "",
   ULTRAMSG_MASTER_TOKEN: process.env["ULTRAMSG_MASTER_TOKEN"] ?? "",
   PAYSTACK_SECRET_KEY: process.env["PAYSTACK_SECRET_KEY"] ?? "",
+  ADDITIONAL_ORIGINS: process.env["ADDITIONAL_ORIGINS"] ?? "",
 } as const;
