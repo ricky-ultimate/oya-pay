@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,6 @@ function AuthIllustration() {
           }}
         />
       </div>
-
       <div className="relative z-10 flex flex-col h-full p-12">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-primary-500 flex items-center justify-center">
@@ -52,7 +52,6 @@ function AuthIllustration() {
             OyaPay
           </span>
         </div>
-
         <div className="flex-1 flex flex-col justify-center max-w-xs">
           <div className="mb-10">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white/70 text-xs font-medium mb-6">
@@ -70,7 +69,6 @@ function AuthIllustration() {
               Paystack-powered payments.
             </p>
           </div>
-
           <div className="space-y-3">
             {[
               {
@@ -111,29 +109,37 @@ function AuthIllustration() {
 }
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, user, loading } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/dashboard");
+    }
+  }, [user, loading, router]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
+    setSubmitting(true);
     try {
       await login(email, password);
     } catch {
       setError("Invalid email or password. Please try again.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
+
+  if (loading || user) return null;
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <AuthIllustration />
-
       <div className="flex flex-col items-center justify-center px-6 py-12 lg:px-12 bg-white">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-2 mb-10">
@@ -159,7 +165,6 @@ export default function LoginPage() {
               OyaPay
             </span>
           </div>
-
           <div className="mb-8">
             <h1
               className="text-2xl font-bold text-neutral-900 tracking-tight mb-1.5"
@@ -171,7 +176,6 @@ export default function LoginPage() {
               Sign in to your account to continue
             </p>
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Email address"
@@ -182,18 +186,15 @@ export default function LoginPage() {
               autoComplete="email"
               required
             />
-            <div>
-              <Input
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-
+            <Input
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              required
+            />
             {error && (
               <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-error-50 border border-error-100">
                 <svg
@@ -212,17 +213,15 @@ export default function LoginPage() {
                 <p className="text-sm text-error-700">{error}</p>
               </div>
             )}
-
             <Button
               type="submit"
-              loading={loading}
+              loading={submitting}
               size="lg"
               className="w-full mt-2"
             >
               Sign in
             </Button>
           </form>
-
           <div className="mt-6 pt-6 border-t border-neutral-100">
             <p className="text-center text-sm text-neutral-500">
               Don&apos;t have an account?{" "}
