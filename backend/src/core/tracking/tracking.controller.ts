@@ -50,7 +50,7 @@ export const trackPayLinkClick = async (
       return;
     }
 
-    res.redirect(302, `https://paystack.com/pay/${invoice.paystackRef}`);
+    res.redirect(302, `https://checkout.paystack.com/${invoice.paystackRef}`);
   } catch (err) {
     logger("Pay link click redirect error:", err);
     res.redirect(302, ENV.CLIENT_URL);
