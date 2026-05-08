@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -17,9 +17,7 @@ function QrDisplay({
   qrCode: string | null;
   loading: boolean;
 }) {
-  if (loading) {
-    return <Skeleton className="w-56 h-56 rounded-xl mx-auto" />;
-  }
+  if (loading) return <Skeleton className="w-56 h-56 rounded-xl mx-auto" />;
   if (!qrCode) {
     return (
       <div className="w-56 h-56 rounded-xl bg-neutral-100 border border-dashed border-neutral-300 flex items-center justify-center mx-auto">
@@ -66,7 +64,6 @@ function StatusBadge({ status }: { status: string }) {
     label: status,
     className: "bg-neutral-100 text-neutral-500 border-neutral-200",
   };
-
   return (
     <span
       className={`inline-flex items-center h-5 px-2 rounded-full text-xs font-semibold border ${config.className}`}
@@ -101,8 +98,11 @@ export default function WhatsAppSetupPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-status"] });
     },
-    onError: () =>
-      toast("Failed to set up WhatsApp. Contact support.", "error"),
+    onError: (err: Error) =>
+      toast(
+        err.message ?? "Failed to set up WhatsApp. Contact support.",
+        "error",
+      ),
   });
 
   const restartMutation = useMutation({
@@ -121,6 +121,15 @@ export default function WhatsAppSetupPage() {
       refetch();
     },
     onError: () => toast("Failed to logout", "error"),
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: () => api.clearWhatsApp(),
+    onSuccess: () => {
+      toast("Instance cleared. Scan the QR to reconnect.", "success");
+      refetch();
+    },
+    onError: () => toast("Failed to clear instance", "error"),
   });
 
   const disconnectMutation = useMutation({
@@ -172,8 +181,8 @@ export default function WhatsAppSetupPage() {
         ) : notConfigured ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-neutral-600">
-              OyaPay will create a dedicated WhatsApp instance for your account.
-              You will scan a QR code to link your WhatsApp number.
+              OyaPay will connect your WhatsApp instance. You will scan a QR
+              code to link your WhatsApp number.
             </p>
             <Button
               onClick={handleProvision}
@@ -260,6 +269,15 @@ export default function WhatsAppSetupPage() {
               className="w-full justify-start"
             >
               Log out and re-scan QR
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => clearMutation.mutate()}
+              loading={clearMutation.isPending}
+              className="w-full justify-start"
+            >
+              Clear session and messages
             </Button>
             <Button
               variant="ghost"
