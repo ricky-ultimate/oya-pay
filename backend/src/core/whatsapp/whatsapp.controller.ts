@@ -3,11 +3,12 @@ import { AuthRequest } from "../../middleware/auth.middleware";
 import { sendSuccess, sendError } from "../../utils/response.utils";
 import prisma from "../../config/db.config";
 import {
-  createUserInstance,
   getInstanceStatus,
   getInstanceQr,
   restartInstance,
   logoutInstance,
+  clearInstance,
+  provisionUserWhatsApp,
 } from "../../services/whatsapp.service";
 import logger from "../../utils/logger.utils";
 
@@ -84,41 +85,24 @@ export const provisionInstance = async (
       return;
     }
 
-    if (user.ultramsgInstanceId && user.ultramsgToken) {
-      const status = await getInstanceStatus(
-        user.ultramsgInstanceId,
-        user.ultramsgToken,
+    if (!user.ultramsgInstanceId || !user.ultramsgToken) {
+      sendError(
+        res,
+        422,
+        "No WhatsApp instance is configured for this account. Set ULTRAMSG_INSTANCE_ID and ULTRAMSG_TOKEN environment variables, then link them to your user account.",
       );
-      sendSuccess(res, 200, "Instance already provisioned", {
-        instanceId: user.ultramsgInstanceId,
-        status: status.status,
-        qrCode: status.qrCode,
-      });
       return;
     }
 
-    const phone = (req.body as { phone?: string }).phone ?? user.phone ?? "";
-    const instance = await createUserInstance(user.id, phone);
+    const result = await provisionUserWhatsApp(
+      user.ultramsgInstanceId,
+      user.ultramsgToken,
+    );
 
-    if (!instance) {
-      sendError(res, 503, "WhatsApp provisioning is not available");
-      return;
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        ultramsgInstanceId: instance.instanceId,
-        ultramsgToken: instance.token,
-      },
-    });
-
-    const status = await getInstanceStatus(instance.instanceId, instance.token);
-
-    sendSuccess(res, 201, "Instance provisioned", {
-      instanceId: instance.instanceId,
-      status: status.status,
-      qrCode: status.qrCode,
+    sendSuccess(res, 200, "Instance status fetched", {
+      instanceId: user.ultramsgInstanceId,
+      status: result.status,
+      qrCode: result.qrCode,
     });
   } catch (error) {
     logger("WhatsApp provision error:", error);
@@ -177,6 +161,30 @@ export const logoutWhatsApp = async (
   } catch (error) {
     logger("WhatsApp logout error:", error);
     sendError(res, 500, "Failed to logout");
+  }
+};
+
+export const clearWhatsApp = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+    if (!user || !user.ultramsgInstanceId || !user.ultramsgToken) {
+      sendError(res, 404, "WhatsApp instance not configured");
+      return;
+    }
+
+    const ok = await clearInstance(user.ultramsgInstanceId, user.ultramsgToken);
+    if (!ok) {
+      sendError(res, 500, "Failed to clear instance");
+      return;
+    }
+
+    sendSuccess(res, 200, "Instance cleared. Scan QR to reconnect.");
+  } catch (error) {
+    logger("WhatsApp clear error:", error);
+    sendError(res, 500, "Failed to clear instance");
   }
 };
 

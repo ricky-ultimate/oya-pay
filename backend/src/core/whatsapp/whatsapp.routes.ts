@@ -6,6 +6,7 @@ import {
   provisionInstance,
   restartWhatsApp,
   logoutWhatsApp,
+  clearWhatsApp,
   disconnectWhatsApp,
 } from "./whatsapp.controller";
 
@@ -18,6 +19,7 @@ router.get("/qr", getWhatsAppQr);
 router.post("/provision", provisionInstance);
 router.post("/restart", restartWhatsApp);
 router.post("/logout", logoutWhatsApp);
+router.post("/clear", clearWhatsApp);
 router.delete("/disconnect", disconnectWhatsApp);
 
 export default router;
