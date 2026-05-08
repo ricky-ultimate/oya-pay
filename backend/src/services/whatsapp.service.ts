@@ -18,25 +18,95 @@ export const sendWhatsAppMessage = async (
   instanceId?: string | null,
   token?: string | null,
 ): Promise<boolean> => {
-  const activeInstanceId = instanceId ?? ENV.ULTRAMSG_INSTANCE_ID;
-  const activeToken = token ?? ENV.ULTRAMSG_TOKEN;
-
-  if (!activeInstanceId || !activeToken) {
-    logger(
-      "WhatsApp: no instance configured for this user and no global fallback",
-    );
+  if (!instanceId || !token) {
+    logger("WhatsApp: no instance configured for this user");
     return false;
   }
 
   try {
-    await axios.post(`${ULTRAMSG_BASE}/${activeInstanceId}/messages/chat`, {
-      token: activeToken,
+    await axios.post(`${ULTRAMSG_BASE}/${instanceId}/messages/chat`, {
+      token,
       to: formatPhone(phone),
       body: message,
     });
     return true;
   } catch (error) {
     logger("WhatsApp send error:", error);
+    return false;
+  }
+};
+
+export interface WhatsAppInstanceStatus {
+  instanceId: string;
+  status: string;
+  qrCode: string | null;
+  phoneConnected: string | null;
+}
+
+export const getInstanceStatus = async (
+  instanceId: string,
+  token: string,
+): Promise<WhatsAppInstanceStatus> => {
+  const response = await axios.get(
+    `${ULTRAMSG_BASE}/${instanceId}/instance/status`,
+    { params: { token } },
+  );
+  const data = response.data as {
+    status?: string;
+    qrCode?: string;
+    phone?: { number?: string };
+  };
+  return {
+    instanceId,
+    status: data.status ?? "unknown",
+    qrCode: data.qrCode ?? null,
+    phoneConnected: data.phone?.number ?? null,
+  };
+};
+
+export const getInstanceQr = async (
+  instanceId: string,
+  token: string,
+): Promise<string | null> => {
+  try {
+    const response = await axios.get(
+      `${ULTRAMSG_BASE}/${instanceId}/instance/qr`,
+      { params: { token } },
+    );
+    const data = response.data as { qrCode?: string };
+    return data.qrCode ?? null;
+  } catch (error) {
+    logger("WhatsApp QR fetch error:", error);
+    return null;
+  }
+};
+
+export const restartInstance = async (
+  instanceId: string,
+  token: string,
+): Promise<boolean> => {
+  try {
+    await axios.get(`${ULTRAMSG_BASE}/${instanceId}/instance/restart`, {
+      params: { token },
+    });
+    return true;
+  } catch (error) {
+    logger("WhatsApp restart error:", error);
+    return false;
+  }
+};
+
+export const logoutInstance = async (
+  instanceId: string,
+  token: string,
+): Promise<boolean> => {
+  try {
+    await axios.get(`${ULTRAMSG_BASE}/${instanceId}/instance/logout`, {
+      params: { token },
+    });
+    return true;
+  } catch (error) {
+    logger("WhatsApp logout error:", error);
     return false;
   }
 };

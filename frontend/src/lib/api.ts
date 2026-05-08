@@ -25,6 +25,7 @@ import type {
   UpdateInvoiceInput,
   UpdateProfileInput,
   User,
+  WhatsAppStatus,
 } from "@/types";
 
 export * from "@/types";
@@ -537,6 +538,36 @@ class ApiClient {
       "/api/paystack/onboard",
     );
     return response.data.data!;
+  }
+
+  async getWhatsAppStatus(): Promise<WhatsAppStatus> {
+    const response = await this.client.get<ApiResponse<WhatsAppStatus>>(
+      "/api/whatsapp/status",
+    );
+    return response.data.data!;
+  }
+
+  async provisionWhatsApp(): Promise<{
+    instanceId: string;
+    status: string;
+    qrCode: string | null;
+  }> {
+    const response = await this.client.post<
+      ApiResponse<{ instanceId: string; status: string; qrCode: string | null }>
+    >("/api/whatsapp/provision");
+    return response.data.data!;
+  }
+
+  async restartWhatsApp(): Promise<void> {
+    await this.client.post("/api/whatsapp/restart");
+  }
+
+  async logoutWhatsApp(): Promise<void> {
+    await this.client.post("/api/whatsapp/logout");
+  }
+
+  async disconnectWhatsApp(): Promise<void> {
+    await this.client.delete("/api/whatsapp/disconnect");
   }
 }
 
