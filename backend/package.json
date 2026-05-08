@@ -1,54 +1,72 @@
 {
-  "name": "oya-pay-backend",
-  "version": "1.0.0",
-  "description": "New project created from template",
-  "main": "index.js",
-  "scripts": {
-    "start": "npm run build && node ./dist/index.js",
-    "build": "tsc",
-    "prebuild": "prisma generate",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio",
-    "db:pull": "prisma db pull",
-    "db:migrate": "prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "tsx --env-file=.env prisma/seed.ts",
-    "db:seed:local": "tsx --env-file=.env.local prisma/seed.ts",
-    "dev": "ts-node-dev ./src/index.ts --watch ./*/**"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/morgan": "^1.9.10",
-    "@types/node": "^25.6.0",
-    "@types/node-cron": "^3.0.11",
-    "@types/nodemailer": "^8.0.0",
-    "@types/pdfkit": "^0.17.6",
-    "axios": "^1.15.2",
-    "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.4.1",
-    "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.3",
-    "morgan": "^1.10.1",
-    "node-cron": "^4.2.1",
-    "nodemailer": "^8.0.7",
-    "pdfkit": "^0.18.0",
-    "pg": "^8.20.0",
-    "prisma": "^7.8.0",
-    "typescript": "^6.0.3",
-    "zod": "^4.3.6"
-  },
-  "devDependencies": {
-    "ts-node-dev": "^2.0.0",
-    "tsx": "^4.21.0"
-  }
+    "name": "oya-pay-backend",
+    "version": "1.0.0",
+    "description": "New project created from template",
+    "main": "index.js",
+    "scripts": {
+        "start": "npm run build && dotenv -e .env -- node ./dist/index.js",
+        "start:dev": "npm run build && dotenv -e .env.local -- node ./dist/index.js",
+
+        "build": "tsc",
+        "prebuild": "prisma generate",
+
+        "dev": "dotenv -e .env.local -- ts-node-dev ./src/index.ts",
+        "dev:prod": "dotenv -e .env -- ts-node-dev ./src/index.ts",
+
+        "db:push": "dotenv -e .env.local -- prisma db push",
+        "db:push:prod": "dotenv -e .env -- prisma db push",
+
+        "db:studio": "dotenv -e .env.local -- prisma studio",
+        "db:studio:prod": "dotenv -e .env -- prisma studio",
+
+        "db:pull": "dotenv -e .env.local -- prisma db pull",
+        "db:pull:prod": "dotenv -e .env -- prisma db pull",
+
+        "db:migrate": "dotenv -e .env.local -- prisma migrate dev",
+        "db:migrate:prod": "dotenv -e .env -- prisma migrate dev",
+
+        "db:migrate:deploy": "dotenv -e .env -- prisma migrate deploy",
+
+        "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts",
+        "db:seed:prod": "dotenv -e .env -- tsx prisma/seed.ts",
+
+        "db:reset": "dotenv -e .env.local -- prisma migrate reset",
+        "db:reset:prod": "dotenv -e .env -- prisma migrate reset"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@prisma/adapter-pg": "^7.8.0",
+        "@prisma/client": "^7.8.0",
+        "@types/bcryptjs": "^2.4.6",
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.6",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/morgan": "^1.9.10",
+        "@types/node": "^25.6.0",
+        "@types/node-cron": "^3.0.11",
+        "@types/nodemailer": "^8.0.0",
+        "@types/pdfkit": "^0.17.6",
+        "axios": "^1.15.2",
+        "bcryptjs": "^3.0.3",
+        "cors": "^2.8.6",
+        "dotenv": "^17.4.2",
+        "express": "^5.2.1",
+        "express-rate-limit": "^8.4.1",
+        "helmet": "^8.1.0",
+        "jsonwebtoken": "^9.0.3",
+        "morgan": "^1.10.1",
+        "node-cron": "^4.2.1",
+        "nodemailer": "^8.0.7",
+        "pdfkit": "^0.18.0",
+        "pg": "^8.20.0",
+        "prisma": "^7.8.0",
+        "typescript": "^6.0.3",
+        "zod": "^4.3.6"
+    },
+    "devDependencies": {
+        "dotenv-cli": "^11.0.0",
+        "ts-node-dev": "^2.0.0",
+        "tsx": "^4.21.0"
+    }
 }
