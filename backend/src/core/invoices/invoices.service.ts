@@ -293,7 +293,7 @@ export const sendInvoice = async (
     });
 
     if (payment) {
-      paystackRef = payment.reference;
+      paystackRef = payment.accessCode;
       await prisma.invoice.update({
         where: { id: invoiceId },
         data: { paystackRef },
@@ -430,7 +430,7 @@ export const getOrRegeneratePaymentLink = async (
 
   if (invoice.paystackRef && !forceRegenerate) {
     return {
-      authorizationUrl: `https://paystack.com/pay/${invoice.paystackRef}`,
+      authorizationUrl: `https://checkout.paystack.com/${invoice.paystackRef}`,
       reference: invoice.paystackRef,
     };
   }
@@ -448,12 +448,12 @@ export const getOrRegeneratePaymentLink = async (
 
   await prisma.invoice.update({
     where: { id: invoiceId },
-    data: { paystackRef: payment.reference },
+    data: { paystackRef: payment.accessCode },
   });
 
   return {
     authorizationUrl: payment.authorizationUrl,
-    reference: payment.reference,
+    reference: payment.accessCode,
   };
 };
 
