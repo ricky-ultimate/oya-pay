@@ -531,6 +531,13 @@ class ApiClient {
     );
     return response.data.data!;
   }
+
+  async getPaystackOnboardingUrl(): Promise<{ url: string }> {
+    const response = await this.client.get<ApiResponse<{ url: string }>>(
+      "/api/paystack/onboard",
+    );
+    return response.data.data!;
+  }
 }
 
 export const api = new ApiClient();
