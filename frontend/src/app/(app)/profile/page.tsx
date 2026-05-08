@@ -2,40 +2,129 @@
 
 import { useState, useEffect, FormEvent, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { UpdateProfileInput } from "@/types";
 import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 
+interface BankOption {
+  name: string;
+  code: string;
+}
+
+interface SubaccountFormData {
+  businessName: string;
+  settlementBank: string;
+  accountNumber: string;
+  primaryContactEmail: string;
+  primaryContactName: string;
+  primaryContactPhone: string;
+}
+
+const emptySubaccountForm: SubaccountFormData = {
+  businessName: "",
+  settlementBank: "",
+  accountNumber: "",
+  primaryContactEmail: "",
+  primaryContactName: "",
+  primaryContactPhone: "",
+};
+
 function PayoutSetupCard({
-  subaccountCode,
-  isActive,
-  onManualSave,
-  isSaving,
+  user,
+  onSaved,
 }: {
-  subaccountCode: string;
-  isActive: boolean;
-  onManualSave: (code: string) => void;
-  isSaving: boolean;
+  user: ReturnType<typeof useAuth>["user"];
+  onSaved: (code: string) => void;
 }) {
-  const [code, setCode] = useState(subaccountCode);
-  const [launching, setLaunching] = useState(false);
-  const isDirty = code !== subaccountCode;
+  const { toast } = useToast();
+  const [mode, setMode] = useState<"idle" | "create" | "manual">("idle");
+  const [form, setForm] = useState<SubaccountFormData>(emptySubaccountForm);
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
+  const [manualCode, setManualCode] = useState(
+    user?.paystackSubaccountCode ?? "",
+  );
+  const isActive = user?.paystackSubaccountActive ?? false;
 
-  useEffect(() => {
-    setCode(subaccountCode);
-  }, [subaccountCode]);
+  const { data: banks = [], isLoading: banksLoading } = useQuery<BankOption[]>({
+    queryKey: ["paystack-banks"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001"}/api/paystack/banks`,
+      );
+      const json = (await res.json()) as { data: BankOption[] };
+      return json.data;
+    },
+    staleTime: 60 * 60 * 1000,
+    enabled: mode === "create",
+  });
 
-  const handleLaunchPaystack = async () => {
-    setLaunching(true);
-    try {
-      const result = await api.getPaystackOnboardingUrl();
-      window.location.href = result.url;
-    } catch {
-      setLaunching(false);
+  const resolveMutation = useMutation({
+    mutationFn: async ({
+      accountNumber,
+      bankCode,
+    }: {
+      accountNumber: string;
+      bankCode: string;
+    }) => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001"}/api/paystack/resolve-account?account_number=${accountNumber}&bank_code=${bankCode}`,
+      );
+      const json = (await res.json()) as {
+        data: { accountName: string };
+        success: boolean;
+        message: string;
+      };
+      if (!json.success) throw new Error(json.message);
+      return json.data;
+    },
+    onSuccess: (data) => setResolvedName(data.accountName),
+    onError: () => {
+      setResolvedName(null);
+      toast("Could not verify account number", "error");
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => api.createSubaccount(form),
+    onSuccess: (data) => {
+      toast("Paystack subaccount created", "success");
+      onSaved(data.subaccountCode);
+      setMode("idle");
+    },
+    onError: (err: Error) =>
+      toast(err.message ?? "Failed to create subaccount", "error"),
+  });
+
+  const verifyManualMutation = useMutation({
+    mutationFn: () => api.verifyAndSaveSubaccount(manualCode),
+    onSuccess: () => {
+      toast("Subaccount verified and saved", "success");
+      onSaved(manualCode);
+      setMode("idle");
+    },
+    onError: () => toast("Invalid subaccount code", "error"),
+  });
+
+  const update =
+    (key: keyof SubaccountFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+      if (key === "accountNumber" || key === "settlementBank") {
+        setResolvedName(null);
+      }
+    };
+
+  const handleResolve = () => {
+    if (form.accountNumber.length === 10 && form.settlementBank) {
+      resolveMutation.mutate({
+        accountNumber: form.accountNumber,
+        bankCode: form.settlementBank,
+      });
     }
   };
 
@@ -47,8 +136,8 @@ function PayoutSetupCard({
             Paystack Payout Account
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
-            Connect your Paystack subaccount so clients can pay you directly
-            through invoices.
+            Connect your bank account so clients can pay you directly through
+            invoices.
           </p>
         </div>
         {isActive && (
@@ -74,49 +163,157 @@ function PayoutSetupCard({
             />
           </svg>
           <p className="text-xs text-warning-800">
-            Payment links will not be generated until you connect a Paystack
-            subaccount.
+            Payment links will not be generated until you connect a payout
+            account.
           </p>
         </div>
       )}
 
-      <Button
-        onClick={handleLaunchPaystack}
-        loading={launching}
-        variant={isActive ? "secondary" : "primary"}
-        className="w-full"
-      >
-        {isActive ? "Reconnect via Paystack" : "Connect Paystack Account"}
-      </Button>
-
-      <div className="relative flex items-center gap-3">
-        <div className="flex-1 h-px bg-neutral-200" />
-        <span className="text-xs text-neutral-400 flex-shrink-0">
-          or enter code manually
-        </span>
-        <div className="flex-1 h-px bg-neutral-200" />
-      </div>
-
-      <div className="flex gap-3">
-        <Input
-          label="Subaccount Code"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="ACCT_xxxxxxxxxxxx"
-          className="flex-1"
-        />
-        <div className="flex items-end">
-          <Button
-            onClick={() => onManualSave(code)}
-            loading={isSaving}
-            disabled={!code.trim() || !isDirty}
-            size="md"
-            variant="secondary"
-          >
-            Save
+      {mode === "idle" && (
+        <div className="flex flex-col gap-2">
+          <Button onClick={() => setMode("create")} className="w-full">
+            {isActive ? "Update payout account" : "Connect bank account"}
           </Button>
+          <button
+            type="button"
+            onClick={() => setMode("manual")}
+            className="text-xs text-neutral-500 hover:text-neutral-700 text-center"
+          >
+            Already have a subaccount code? Enter it manually
+          </button>
         </div>
-      </div>
+      )}
+
+      {mode === "create" && (
+        <div className="flex flex-col gap-3">
+          <Input
+            label="Business / Trading Name"
+            value={form.businessName}
+            onChange={update("businessName")}
+            placeholder="Okeke Designs"
+          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-neutral-700">
+              Settlement Bank
+            </label>
+            <Select
+              value={form.settlementBank}
+              onChange={update("settlementBank")}
+              disabled={banksLoading}
+            >
+              <option value="">
+                {banksLoading ? "Loading banks..." : "Select a bank"}
+              </option>
+              {banks.map((b) => (
+                <option key={b.code} value={b.code}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Input
+              label="Account Number"
+              value={form.accountNumber}
+              onChange={update("accountNumber")}
+              placeholder="0123456789"
+              maxLength={10}
+            />
+            {form.accountNumber.length === 10 && form.settlementBank && (
+              <div className="flex items-center gap-2">
+                {resolvedName ? (
+                  <p className="text-xs text-success-700 font-medium">
+                    {resolvedName}
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResolve}
+                    disabled={resolveMutation.isPending}
+                    className="text-xs text-primary-600 font-medium hover:underline disabled:opacity-50"
+                  >
+                    {resolveMutation.isPending
+                      ? "Verifying..."
+                      : "Verify account name"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <Input
+            label="Contact Name (optional)"
+            value={form.primaryContactName}
+            onChange={update("primaryContactName")}
+            placeholder="Chidi Okeke"
+          />
+          <Input
+            label="Contact Email (optional)"
+            type="email"
+            value={form.primaryContactEmail}
+            onChange={update("primaryContactEmail")}
+            placeholder="chidi@example.com"
+          />
+          <Input
+            label="Contact Phone (optional)"
+            type="tel"
+            value={form.primaryContactPhone}
+            onChange={update("primaryContactPhone")}
+            placeholder="08012345678"
+          />
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="secondary"
+              onClick={() => setMode("idle")}
+              className="flex-1"
+              disabled={createMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => createMutation.mutate()}
+              loading={createMutation.isPending}
+              disabled={
+                !form.businessName ||
+                !form.settlementBank ||
+                !form.accountNumber ||
+                !resolvedName
+              }
+              className="flex-1"
+            >
+              Create Subaccount
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {mode === "manual" && (
+        <div className="flex flex-col gap-3">
+          <Input
+            label="Subaccount Code"
+            value={manualCode}
+            onChange={(e) => setManualCode(e.target.value)}
+            placeholder="ACCT_xxxxxxxxxxxx"
+          />
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setMode("idle")}
+              className="flex-1"
+              disabled={verifyManualMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => verifyManualMutation.mutate()}
+              loading={verifyManualMutation.isPending}
+              disabled={!manualCode.trim()}
+              className="flex-1"
+            >
+              Verify and Save
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -217,17 +414,6 @@ function ProfileInner() {
     onError: () => toast("Failed to update profile", "error"),
   });
 
-  const subaccountMutation = useMutation({
-    mutationFn: (paystackSubaccountCode: string) =>
-      api.updateProfile({ paystackSubaccountCode }),
-    onSuccess: (updated) => {
-      setUser(updated);
-      toast("Paystack subaccount saved", "success");
-    },
-    onError: (err: Error) =>
-      toast(err.message ?? "Invalid subaccount code", "error"),
-  });
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     updateMutation.mutate({
@@ -241,6 +427,16 @@ function ProfileInner() {
   const update =
     (key: keyof ProfileForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
+
+  const handleSubaccountSaved = (code: string) => {
+    if (user) {
+      setUser({
+        ...user,
+        paystackSubaccountCode: code,
+        paystackSubaccountActive: true,
+      });
+    }
+  };
 
   return (
     <div className="max-w-lg mx-auto flex flex-col gap-6">
@@ -258,12 +454,7 @@ function ProfileInner() {
         </div>
       </div>
 
-      <PayoutSetupCard
-        subaccountCode={user?.paystackSubaccountCode ?? ""}
-        isActive={user?.paystackSubaccountActive ?? false}
-        onManualSave={(code) => subaccountMutation.mutate(code)}
-        isSaving={subaccountMutation.isPending}
-      />
+      <PayoutSetupCard user={user} onSaved={handleSubaccountSaved} />
 
       <WhatsAppStatusCard instanceId={user?.ultramsgInstanceId ?? null} />
 
