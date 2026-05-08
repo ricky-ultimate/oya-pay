@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { UpdateProfileInput } from "@/types";
@@ -12,20 +13,31 @@ import { useToast } from "@/components/ui/toast";
 function PayoutSetupCard({
   subaccountCode,
   isActive,
-  onSave,
+  onManualSave,
   isSaving,
 }: {
   subaccountCode: string;
   isActive: boolean;
-  onSave: (code: string) => void;
+  onManualSave: (code: string) => void;
   isSaving: boolean;
 }) {
   const [code, setCode] = useState(subaccountCode);
+  const [launching, setLaunching] = useState(false);
+  const isDirty = code !== subaccountCode;
 
   useEffect(() => {
-    if (code === subaccountCode) return;
-    Promise.resolve().then(() => setCode(subaccountCode));
-  }, [subaccountCode, code]);
+    setCode(subaccountCode);
+  }, [subaccountCode]);
+
+  const handleLaunchPaystack = async () => {
+    setLaunching(true);
+    try {
+      const result = await api.getPaystackOnboardingUrl();
+      window.location.href = result.url;
+    } catch {
+      setLaunching(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl border border-neutral-200 p-5 flex flex-col gap-4">
@@ -35,17 +47,8 @@ function PayoutSetupCard({
             Paystack Payout Account
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
-            Enter your Paystack subaccount code so clients can pay you directly.
-            Create one at{" "}
-            <a
-              href="https://dashboard.paystack.com/#/subaccounts"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary-600 hover:underline"
-            >
-              dashboard.paystack.com
-            </a>
-            .
+            Connect your Paystack subaccount so clients can pay you directly
+            through invoices.
           </p>
         </div>
         {isActive && (
@@ -54,6 +57,7 @@ function PayoutSetupCard({
           </span>
         )}
       </div>
+
       {!isActive && (
         <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-warning-50 border border-warning-100">
           <svg
@@ -70,12 +74,29 @@ function PayoutSetupCard({
             />
           </svg>
           <p className="text-xs text-warning-800">
-            Set up your Paystack subaccount to receive client payments directly.
-            Without this, payment links in invoices and follow-ups will not be
-            generated.
+            Payment links will not be generated until you connect a Paystack
+            subaccount.
           </p>
         </div>
       )}
+
+      <Button
+        onClick={handleLaunchPaystack}
+        loading={launching}
+        variant={isActive ? "secondary" : "primary"}
+        className="w-full"
+      >
+        {isActive ? "Reconnect via Paystack" : "Connect Paystack Account"}
+      </Button>
+
+      <div className="relative flex items-center gap-3">
+        <div className="flex-1 h-px bg-neutral-200" />
+        <span className="text-xs text-neutral-400 flex-shrink-0">
+          or enter code manually
+        </span>
+        <div className="flex-1 h-px bg-neutral-200" />
+      </div>
+
       <div className="flex gap-3">
         <Input
           label="Subaccount Code"
@@ -86,10 +107,11 @@ function PayoutSetupCard({
         />
         <div className="flex items-end">
           <Button
-            onClick={() => onSave(code)}
+            onClick={() => onManualSave(code)}
             loading={isSaving}
-            disabled={!code.trim() || code === subaccountCode}
+            disabled={!code.trim() || !isDirty}
             size="md"
+            variant="secondary"
           >
             Save
           </Button>
@@ -111,7 +133,7 @@ function WhatsAppStatusCard({ instanceId }: { instanceId: string | null }) {
           <p className="text-xs text-neutral-500 mt-1">
             {configured
               ? "Your WhatsApp instance is active. Follow-ups will be sent via your number."
-              : "WhatsApp instance not yet configured. Contact support or re-register with a valid phone number."}
+              : "WhatsApp not connected. Go to the WhatsApp setup page to scan your QR code."}
           </p>
         </div>
         <span
@@ -125,6 +147,14 @@ function WhatsAppStatusCard({ instanceId }: { instanceId: string | null }) {
           {configured ? "Connected" : "Not connected"}
         </span>
       </div>
+      {!configured && (
+        <a
+          href="/profile/whatsapp"
+          className="mt-3 inline-flex items-center h-9 px-4 rounded-xl bg-[#25D366] text-white text-sm font-semibold hover:bg-[#128C7E] transition-colors"
+        >
+          Set up WhatsApp
+        </a>
+      )}
     </div>
   );
 }
@@ -136,9 +166,11 @@ interface ProfileForm {
   logoUrl: string;
 }
 
-export default function ProfilePage() {
+function ProfileInner() {
   const { user, setUser, logout } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [form, setForm] = useState<ProfileForm>({
     name: "",
@@ -149,17 +181,31 @@ export default function ProfilePage() {
   const [formHydrated, setFormHydrated] = useState(false);
 
   useEffect(() => {
+    const paystackStatus = searchParams.get("paystack");
+    if (paystackStatus === "success") {
+      toast("Paystack account connected successfully", "success");
+      router.replace("/profile");
+    } else if (paystackStatus === "error") {
+      const reason = searchParams.get("reason");
+      const messages: Record<string, string> = {
+        missing_params: "Paystack returned incomplete data.",
+        invalid_code: "The subaccount code could not be verified.",
+        server_error: "An error occurred. Please try again.",
+      };
+      toast(messages[reason ?? ""] ?? "Paystack connection failed.", "error");
+      router.replace("/profile");
+    }
+  }, [searchParams, toast, router]);
+
+  useEffect(() => {
     if (!user || formHydrated) return;
-    const next: ProfileForm = {
+    setForm({
       name: user.name ?? "",
       businessName: user.businessName ?? "",
       phone: user.phone ?? "",
       logoUrl: user.logoUrl ?? "",
-    };
-    Promise.resolve().then(() => {
-      setForm(next);
-      setFormHydrated(true);
     });
+    setFormHydrated(true);
   }, [user, formHydrated]);
 
   const updateMutation = useMutation({
@@ -215,7 +261,7 @@ export default function ProfilePage() {
       <PayoutSetupCard
         subaccountCode={user?.paystackSubaccountCode ?? ""}
         isActive={user?.paystackSubaccountActive ?? false}
-        onSave={(code) => subaccountMutation.mutate(code)}
+        onManualSave={(code) => subaccountMutation.mutate(code)}
         isSaving={subaccountMutation.isPending}
       />
 
@@ -281,5 +327,13 @@ export default function ProfilePage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense>
+      <ProfileInner />
+    </Suspense>
   );
 }

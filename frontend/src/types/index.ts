@@ -334,3 +334,11 @@ export interface FollowUpAnalytics {
   monthlyTrend: MonthlyTrendPoint[];
   bestPerformingTemplate: string | null;
 }
+
+export interface WhatsAppStatus {
+  connected: boolean;
+  status: string;
+  qrCode: string | null;
+  phoneConnected: string | null;
+  instanceId: string | null;
+}
