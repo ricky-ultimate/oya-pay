@@ -569,6 +569,35 @@ class ApiClient {
   async disconnectWhatsApp(): Promise<void> {
     await this.client.delete("/api/whatsapp/disconnect");
   }
+
+  async createSubaccount(data: {
+    businessName: string;
+    settlementBank: string;
+    accountNumber: string;
+    description?: string;
+    primaryContactEmail?: string;
+    primaryContactName?: string;
+    primaryContactPhone?: string;
+  }): Promise<{
+    subaccountCode: string;
+    businessName: string;
+    settlementBank: string;
+    accountNumber: string;
+  }> {
+    const response = await this.client.post<
+      ApiResponse<{
+        subaccountCode: string;
+        businessName: string;
+        settlementBank: string;
+        accountNumber: string;
+      }>
+    >("/api/paystack/subaccount", data);
+    return response.data.data!;
+  }
+
+  async verifyAndSaveSubaccount(code: string): Promise<void> {
+    await this.client.post(`/api/paystack/subaccount/verify/${code}`);
+  }
 }
 
 export const api = new ApiClient();

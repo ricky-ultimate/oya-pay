@@ -77,6 +77,70 @@ export const verifyPayment = async (reference: string): Promise<boolean> => {
   }
 };
 
+export interface CreateSubaccountOptions {
+  businessName: string;
+  settlementBank: string;
+  accountNumber: string;
+  percentageCharge: number;
+  description?: string;
+  primaryContactEmail?: string;
+  primaryContactName?: string;
+  primaryContactPhone?: string;
+}
+
+export interface SubaccountResult {
+  subaccountCode: string;
+  businessName: string;
+  settlementBank: string;
+  accountNumber: string;
+}
+
+export const createSubaccount = async (
+  options: CreateSubaccountOptions,
+): Promise<SubaccountResult> => {
+  const response = await paystackClient.post("/subaccount", {
+    business_name: options.businessName,
+    settlement_bank: options.settlementBank,
+    account_number: options.accountNumber,
+    percentage_charge: options.percentageCharge,
+    description: options.description,
+    primary_contact_email: options.primaryContactEmail,
+    primary_contact_name: options.primaryContactName,
+    primary_contact_phone: options.primaryContactPhone,
+  });
+
+  return {
+    subaccountCode: response.data.data.subaccount_code as string,
+    businessName: response.data.data.business_name as string,
+    settlementBank: response.data.data.settlement_bank as string,
+    accountNumber: response.data.data.account_number as string,
+  };
+};
+
+export const listBanks = async (): Promise<
+  Array<{ name: string; code: string }>
+> => {
+  const response = await paystackClient.get(
+    "/bank?country=nigeria&perPage=100",
+  );
+  return (response.data.data as Array<{ name: string; code: string }>).map(
+    (b) => ({ name: b.name, code: b.code }),
+  );
+};
+
+export const resolveAccountNumber = async (
+  accountNumber: string,
+  bankCode: string,
+): Promise<{ accountName: string; accountNumber: string }> => {
+  const response = await paystackClient.get(
+    `/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`,
+  );
+  return {
+    accountName: response.data.data.account_name as string,
+    accountNumber: response.data.data.account_number as string,
+  };
+};
+
 export const verifySubaccountCode = async (
   subaccountCode: string,
 ): Promise<boolean> => {

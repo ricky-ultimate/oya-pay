@@ -115,7 +115,7 @@ export const generateInvoicePDF = (
     }
 
     if (invoice.paystackRef) {
-      const payLink = `https://paystack.com/pay/${invoice.paystackRef}`;
+      const payLink = `https://checkout.paystack.com/${invoice.paystackRef}`;
       doc.moveDown().font("Helvetica-Bold").text("Pay Online:");
       doc.font("Helvetica").text(payLink, { link: payLink, underline: true });
     }
