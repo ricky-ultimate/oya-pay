@@ -598,6 +598,10 @@ class ApiClient {
   async verifyAndSaveSubaccount(code: string): Promise<void> {
     await this.client.post(`/api/paystack/subaccount/verify/${code}`);
   }
+
+  async clearWhatsApp(): Promise<void> {
+    await this.client.post("/api/whatsapp/clear");
+  }
 }
 
 export const api = new ApiClient();

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,6 @@ function AuthIllustration() {
           }}
         />
       </div>
-
       <div className="relative z-10 flex flex-col h-full p-12">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-primary-500 flex items-center justify-center">
@@ -53,7 +53,6 @@ function AuthIllustration() {
             OyaPay
           </span>
         </div>
-
         <div className="flex-1 flex flex-col justify-center">
           <div className="mb-10">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white/70 text-xs font-medium mb-6">
@@ -71,11 +70,7 @@ function AuthIllustration() {
               minutes.
             </p>
           </div>
-
-          <div
-            className="w-full rounded-2xl bg-white/5 border border-white/10 overflow-hidden"
-            aria-label="Image placeholder: A clean, split mockup on a dark background showing three states: (1) an invoice being created in the OyaPay interface, (2) a WhatsApp message notification appearing on a phone screen showing payment reminder, (3) a success screen showing 'Payment received ₦350,000'. The image conveys the full invoice-to-payment journey. Dark UI, premium feel, Nigerian context."
-          >
+          <div className="w-full rounded-2xl bg-white/5 border border-white/10 overflow-hidden">
             <div className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-red-500" />
@@ -100,7 +95,6 @@ function AuthIllustration() {
               </p>
             </div>
           </div>
-
           <div className="grid grid-cols-3 gap-4 mt-6">
             {[
               { value: "48h", label: "Avg payment time" },
@@ -125,7 +119,8 @@ function AuthIllustration() {
 }
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, user, loading } = useAuth();
+  const router = useRouter();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -134,7 +129,13 @@ export default function RegisterPage() {
     phone: "",
   });
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/dashboard");
+    }
+  }, [user, loading, router]);
 
   const update =
     (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -147,7 +148,7 @@ export default function RegisterPage() {
       return;
     }
     setError("");
-    setLoading(true);
+    setSubmitting(true);
     try {
       await register({
         name: form.name,
@@ -163,14 +164,15 @@ export default function RegisterPage() {
           : "Registration failed. Please try again.",
       );
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
+
+  if (loading || user) return null;
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <AuthIllustration />
-
       <div className="flex flex-col items-center justify-center px-6 py-12 lg:px-12 bg-white overflow-y-auto">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-2 mb-10">
@@ -196,7 +198,6 @@ export default function RegisterPage() {
               OyaPay
             </span>
           </div>
-
           <div className="mb-8">
             <h1
               className="text-2xl font-bold text-neutral-900 tracking-tight mb-1.5"
@@ -208,7 +209,6 @@ export default function RegisterPage() {
               Start getting paid on time. Free forever.
             </p>
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-3.5">
             <Input
               label="Full name"
@@ -247,23 +247,19 @@ export default function RegisterPage() {
               autoComplete="tel"
               required
             />
-
             <div className="pt-1 border-t border-neutral-100">
               <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
                 Optional details
               </p>
-              <div className="space-y-3.5">
-                <Input
-                  label="Business name"
-                  type="text"
-                  value={form.businessName}
-                  onChange={update("businessName")}
-                  placeholder="Okeke Designs"
-                  autoComplete="organization"
-                />
-              </div>
+              <Input
+                label="Business name"
+                type="text"
+                value={form.businessName}
+                onChange={update("businessName")}
+                placeholder="Okeke Designs"
+                autoComplete="organization"
+              />
             </div>
-
             {error && (
               <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-error-50 border border-error-100">
                 <svg
@@ -282,17 +278,15 @@ export default function RegisterPage() {
                 <p className="text-sm text-error-700">{error}</p>
               </div>
             )}
-
             <Button
               type="submit"
-              loading={loading}
+              loading={submitting}
               size="lg"
               className="w-full mt-1"
             >
               Create account
             </Button>
           </form>
-
           <div className="mt-6 pt-6 border-t border-neutral-100">
             <p className="text-center text-sm text-neutral-500">
               Already have an account?{" "}

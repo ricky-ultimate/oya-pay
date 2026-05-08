@@ -70,13 +70,30 @@ export const getInstanceQr = async (
 ): Promise<string | null> => {
   try {
     const response = await axios.get(
-      `${ULTRAMSG_BASE}/${instanceId}/instance/qr`,
+      `${ULTRAMSG_BASE}/${instanceId}/instance/qrCode`,
       { params: { token } },
     );
     const data = response.data as { qrCode?: string };
     return data.qrCode ?? null;
   } catch (error) {
     logger("WhatsApp QR fetch error:", error);
+    return null;
+  }
+};
+
+export const getInstanceQrImage = async (
+  instanceId: string,
+  token: string,
+): Promise<string | null> => {
+  try {
+    const response = await axios.get(
+      `${ULTRAMSG_BASE}/${instanceId}/instance/qr`,
+      { params: { token } },
+    );
+    const data = response.data as { qr?: string };
+    return data.qr ?? null;
+  } catch (error) {
+    logger("WhatsApp QR image fetch error:", error);
     return null;
   }
 };
@@ -111,25 +128,52 @@ export const logoutInstance = async (
   }
 };
 
-export const createUserInstance = async (
-  userId: string,
-  phone: string,
-): Promise<{ instanceId: string; token: string } | null> => {
-  if (!ENV.ULTRAMSG_MASTER_TOKEN) {
-    return null;
-  }
-
+export const clearInstance = async (
+  instanceId: string,
+  token: string,
+): Promise<boolean> => {
   try {
-    const response = await axios.post(`${ULTRAMSG_BASE}/instance`, {
-      token: ENV.ULTRAMSG_MASTER_TOKEN,
-      phone: formatPhone(phone),
-      name: `oyapay-${userId.substring(0, 8)}`,
+    await axios.post(`${ULTRAMSG_BASE}/${instanceId}/instance/clear`, {
+      token,
     });
-
-    const data = response.data as { instanceId: string; token: string };
-    return { instanceId: data.instanceId, token: data.token };
+    return true;
   } catch (error) {
-    logger("UltraMsg instance creation error:", error);
+    logger("WhatsApp clear error:", error);
+    return false;
+  }
+};
+
+export const initializeUserInstance = async (
+  instanceId: string,
+  token: string,
+): Promise<WhatsAppInstanceStatus> => {
+  return getInstanceStatus(instanceId, token);
+};
+
+export const provisionUserWhatsApp = async (
+  instanceId: string,
+  token: string,
+): Promise<{ status: string; qrCode: string | null }> => {
+  const status = await getInstanceStatus(instanceId, token);
+
+  if (status.status === "authenticated") {
+    return { status: status.status, qrCode: null };
+  }
+
+  const qrCode = await getInstanceQr(instanceId, token);
+  return { status: status.status, qrCode };
+};
+
+export const createUserInstance = async (
+  _userId: string,
+  _phone: string,
+): Promise<{ instanceId: string; token: string } | null> => {
+  if (!ENV.ULTRAMSG_INSTANCE_ID || !ENV.ULTRAMSG_TOKEN) {
     return null;
   }
+
+  return {
+    instanceId: ENV.ULTRAMSG_INSTANCE_ID,
+    token: ENV.ULTRAMSG_TOKEN,
+  };
 };
