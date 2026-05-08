@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthAwareNav } from "@/components/landing/auth-aware-nav";
 
 const NAV_LINKS = [{ href: "/login", label: "Sign in" }];
 
@@ -195,23 +196,7 @@ export default function LandingPage() {
           >
             OyaPay
           </span>
-          <nav className="flex items-center gap-6">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <Link
-              href="/register"
-              className="inline-flex items-center h-9 px-4 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors"
-            >
-              Get started
-            </Link>
-          </nav>
+          <AuthAwareNav />
         </div>
       </header>
 
