@@ -341,3 +341,17 @@ export interface WhatsAppStatus {
   status: string;
   phoneConnected: string | null;
 }
+
+export interface RegisterPendingResponse {
+  requiresVerification: true;
+  email: string;
+}
+
+export interface VerifyEmailInput {
+  email: string;
+  code: string;
+}
+
+export interface ResendCodeResponse {
+  sent: boolean;
+}
