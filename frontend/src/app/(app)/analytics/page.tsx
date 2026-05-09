@@ -741,17 +741,17 @@ export default function AnalyticsPage() {
               color="primary"
             />
             <InsightCard
-              title="Outstanding"
+              title="To collect"
               value={formatNaira(
-                dashboardData?.overview.outstandingAmount ?? 0,
+                dashboardData?.overview.pendingCollection ?? 0,
               )}
-              description="Across open invoices"
+              description="Net outstanding across open invoices"
               color="warning"
             />
             <InsightCard
               title="At risk"
               value={formatNaira(unprotectedOutstanding)}
-              description="Outstanding with no active follow-up"
+              description="Outstanding with no active follow-up sequence"
               color={unprotectedOutstanding > 0 ? "error" : "success"}
             />
           </div>
