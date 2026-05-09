@@ -15,7 +15,6 @@ export interface User {
   createdAt: string;
   paystackSubaccountCode: string | null;
   paystackSubaccountActive: boolean;
-  ultramsgInstanceId: string | null;
 }
 
 export interface Client {
@@ -336,9 +335,8 @@ export interface FollowUpAnalytics {
 }
 
 export interface WhatsAppStatus {
+  configured: boolean;
   connected: boolean;
   status: string;
-  qrCode: string | null;
   phoneConnected: string | null;
-  instanceId: string | null;
 }
