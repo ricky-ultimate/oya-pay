@@ -547,29 +547,6 @@ class ApiClient {
     return response.data.data!;
   }
 
-  async provisionWhatsApp(): Promise<{
-    instanceId: string;
-    status: string;
-    qrCode: string | null;
-  }> {
-    const response = await this.client.post<
-      ApiResponse<{ instanceId: string; status: string; qrCode: string | null }>
-    >("/api/whatsapp/provision");
-    return response.data.data!;
-  }
-
-  async restartWhatsApp(): Promise<void> {
-    await this.client.post("/api/whatsapp/restart");
-  }
-
-  async logoutWhatsApp(): Promise<void> {
-    await this.client.post("/api/whatsapp/logout");
-  }
-
-  async disconnectWhatsApp(): Promise<void> {
-    await this.client.delete("/api/whatsapp/disconnect");
-  }
-
   async createSubaccount(data: {
     businessName: string;
     settlementBank: string;
@@ -597,10 +574,6 @@ class ApiClient {
 
   async verifyAndSaveSubaccount(code: string): Promise<void> {
     await this.client.post(`/api/paystack/subaccount/verify/${code}`);
-  }
-
-  async clearWhatsApp(): Promise<void> {
-    await this.client.post("/api/whatsapp/clear");
   }
 }
 
