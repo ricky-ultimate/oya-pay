@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { UpdateProfileInput } from "@/types";
+import type { UpdateProfileInput, WhatsAppStatus } from "@/types";
 import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -318,8 +318,16 @@ function PayoutSetupCard({
   );
 }
 
-function WhatsAppStatusCard({ instanceId }: { instanceId: string | null }) {
-  const configured = !!instanceId;
+function WhatsAppStatusCard() {
+  const { data: status, isLoading } = useQuery<WhatsAppStatus>({
+    queryKey: ["whatsapp-platform-status"],
+    queryFn: () => api.getWhatsAppStatus(),
+    staleTime: 60_000,
+  });
+
+  const connected = status?.connected ?? false;
+  const configured = status?.configured ?? false;
+
   return (
     <div className="bg-white rounded-xl border border-neutral-200 p-5">
       <div className="flex items-center justify-between">
@@ -328,29 +336,32 @@ function WhatsAppStatusCard({ instanceId }: { instanceId: string | null }) {
             WhatsApp Delivery
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
-            {configured
-              ? "Your WhatsApp instance is active. Follow-ups will be sent via your number."
-              : "WhatsApp not connected. Go to the WhatsApp setup page to scan your QR code."}
+            {isLoading
+              ? "Checking status..."
+              : connected
+                ? `Platform instance active. Reminders will be sent from the OyaPay shared number.`
+                : configured
+                  ? "Platform instance is configured but not connected. Contact support."
+                  : "WhatsApp is not configured on this platform."}
           </p>
         </div>
-        <span
-          className={[
-            "inline-flex items-center h-5 px-2 rounded-full text-xs font-semibold border flex-shrink-0",
-            configured
-              ? "bg-success-50 text-success-700 border-success-200"
-              : "bg-neutral-100 text-neutral-500 border-neutral-200",
-          ].join(" ")}
-        >
-          {configured ? "Connected" : "Not connected"}
-        </span>
+        {!isLoading && (
+          <span
+            className={[
+              "inline-flex items-center h-5 px-2 rounded-full text-xs font-semibold border flex-shrink-0",
+              connected
+                ? "bg-success-50 text-success-700 border-success-200"
+                : "bg-neutral-100 text-neutral-500 border-neutral-200",
+            ].join(" ")}
+          >
+            {connected ? "Active" : "Inactive"}
+          </span>
+        )}
       </div>
-      {!configured && (
-        <a
-          href="/profile/whatsapp"
-          className="mt-3 inline-flex items-center h-9 px-4 rounded-xl bg-[#25D366] text-white text-sm font-semibold hover:bg-[#128C7E] transition-colors"
-        >
-          Set up WhatsApp
-        </a>
+      {status?.phoneConnected && (
+        <p className="text-xs text-neutral-400 mt-3">
+          Connected number: {status.phoneConnected}
+        </p>
       )}
     </div>
   );
@@ -456,7 +467,7 @@ function ProfileInner() {
 
       <PayoutSetupCard user={user} onSaved={handleSubaccountSaved} />
 
-      <WhatsAppStatusCard instanceId={user?.ultramsgInstanceId ?? null} />
+      <WhatsAppStatusCard />
 
       <form
         onSubmit={handleSubmit}
