@@ -34,7 +34,7 @@ export function StatusBadge({ status }: { status: InvoiceStatus }) {
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.DRAFT;
   return (
     <span
-      className={`inline-flex items-center h-5 px-2 rounded-full text-xs font-semibold flex-shrink-0 ${config.className}`}
+      className={`inline-flex items-center justify-center h-5 min-w-[4.75rem] px-2 rounded-full text-xs font-semibold flex-shrink-0 ${config.className}`}
     >
       {config.label}
     </span>
