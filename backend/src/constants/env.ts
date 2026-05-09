@@ -15,7 +15,6 @@ export const ENV = {
   SMTP_FROM: process.env["SMTP_FROM"] ?? "",
   ULTRAMSG_INSTANCE_ID: process.env["ULTRAMSG_INSTANCE_ID"] ?? "",
   ULTRAMSG_TOKEN: process.env["ULTRAMSG_TOKEN"] ?? "",
-  ULTRAMSG_MASTER_TOKEN: process.env["ULTRAMSG_MASTER_TOKEN"] ?? "",
   PAYSTACK_SECRET_KEY: process.env["PAYSTACK_SECRET_KEY"] ?? "",
   ADDITIONAL_ORIGINS: process.env["ADDITIONAL_ORIGINS"] ?? "",
 } as const;
