@@ -53,13 +53,13 @@ function InvoicesPageInner() {
       </div>
 
       <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-100 flex gap-1 overflow-x-auto scrollbar-none">
+        <div className="px-4 py-3 border-b border-neutral-100 flex flex-nowrap gap-1 overflow-x-auto scrollbar-none">
           {STATUS_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setStatus(opt.value)}
               className={[
-                "flex-shrink-0 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all",
+                "flex-shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all",
                 status === opt.value
                   ? "bg-neutral-900 text-white shadow-sm"
                   : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700",
@@ -105,7 +105,7 @@ function InvoicesPageInner() {
                   href={`/invoices/${invoice.id}`}
                   className="flex items-center justify-between px-5 py-4 hover:bg-neutral-50/80 transition-colors group"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
                     <StatusBadge status={invoice.status as InvoiceStatus} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
