@@ -72,6 +72,7 @@ export interface FollowUpAttribution {
   channel: string;
   template: string | null;
   sentAt: string;
+  recoveredAmount: number;
 }
 
 export interface ClientStats {
