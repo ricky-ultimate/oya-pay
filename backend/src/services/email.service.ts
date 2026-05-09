@@ -16,6 +16,8 @@ export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
+  replyTo?: string;
+  fromName?: string;
   attachments?: { filename: string; content: Buffer }[];
 }
 
@@ -24,10 +26,11 @@ export const sendEmail = async (
 ): Promise<boolean> => {
   try {
     await transporter.sendMail({
-      from: `"Oya Pay" <${ENV.SMTP_FROM}>`,
+      from: `"OyaPay" <${ENV.SMTP_FROM}>`,
       to: options.to,
       subject: options.subject,
       html: options.html,
+      ...(options.replyTo && { replyTo: options.replyTo }),
       attachments: options.attachments,
     });
     return true;
