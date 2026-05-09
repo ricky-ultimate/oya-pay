@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "OyaPay — Smart invoicing for African freelancers",
+  title: "OyaPay - Smart invoicing for African freelancers",
   description: "Create, send, and track invoices. Get paid faster.",
 };
 
