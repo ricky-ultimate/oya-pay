@@ -9,13 +9,14 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "./api";
-import type { RegisterInput, User } from "@/types";
+import type { RegisterInput, User, VerifyEmailInput } from "@/types";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterInput) => Promise<void>;
+  register: (data: RegisterInput) => Promise<{ email: string }>;
+  verifyEmail: (data: VerifyEmailInput) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
 }
@@ -48,10 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/dashboard");
   };
 
-  const register = async (data: RegisterInput) => {
-    await api.register(data);
+  const register = async (data: RegisterInput): Promise<{ email: string }> => {
+    const result = await api.register(data);
+    return { email: result.email };
+  };
+
+  const verifyEmail = async (data: VerifyEmailInput): Promise<void> => {
+    const result = await api.verifyEmail(data);
     const me = await api.getMe();
     setUser(me);
+    void result;
     router.push("/dashboard");
   };
 
@@ -63,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, setUser }}
+      value={{ user, loading, login, register, verifyEmail, logout, setUser }}
     >
       {children}
     </AuthContext.Provider>
