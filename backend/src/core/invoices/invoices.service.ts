@@ -111,12 +111,10 @@ export const getInvoiceById = async (userId: string, invoiceId: string) => {
     channel: string;
     template: string | null;
     sentAt: string;
+    recoveredAmount: number;
   } | null = null;
 
-  if (
-    invoice.status === InvoiceStatus.PAID ||
-    invoice.status === InvoiceStatus.PARTIAL
-  ) {
+  if (invoice.status === InvoiceStatus.PAID) {
     const sentLogs = invoice.followUpLogs.filter((l) => l.status === "SENT");
     const sortedPayments = [...invoice.payments].sort(
       (a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime(),
@@ -132,11 +130,16 @@ export const getInvoiceById = async (userId: string, invoiceId: string) => {
         if (!log) continue;
         const logDate = new Date(log.sentAt);
         if (logDate >= windowStart && logDate <= paidAt) {
+          const totalRecoveredAmount = invoice.payments.reduce(
+            (s, p) => s + Number(p.amount),
+            0,
+          );
           followUpAttribution = {
             followUpNumber: i + 1,
             channel: log.channel,
             template: log.template ?? null,
             sentAt: log.sentAt.toISOString(),
+            recoveredAmount: totalRecoveredAmount,
           };
           break;
         }
