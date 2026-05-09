@@ -16,8 +16,6 @@ model User {
     businessName             String?
     phone                    String
     logoUrl                  String?
-    ultramsgInstanceId       String?
-    ultramsgToken            String?
     paystackSubaccountCode   String?
     paystackSubaccountActive Boolean        @default(false)
     createdAt                DateTime       @default(now())
