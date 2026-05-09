@@ -314,6 +314,8 @@ export const sendInvoice = async (
       to: invoice.client.email,
       subject: tpl.subject,
       html: tpl.html,
+      replyTo: invoice.user.email,
+      fromName: invoice.user.businessName ?? invoice.user.name,
       attachments: [{ filename: `${invoice.invoiceNumber}.pdf`, content: pdf }],
     });
 
