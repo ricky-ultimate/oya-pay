@@ -327,7 +327,6 @@ export const sendInvoice = async (
       },
     });
   }
-
   if (input.channels.includes("WHATSAPP") && invoice.client.phone) {
     const message = getFollowUpWhatsAppTemplate(
       FollowUpTemplate.INVOICE_SENT,
@@ -336,8 +335,6 @@ export const sendInvoice = async (
     results["whatsapp"] = await sendWhatsAppMessage(
       invoice.client.phone,
       message,
-      invoice.user.ultramsgInstanceId,
-      invoice.user.ultramsgToken,
     );
 
     await prisma.followUpLog.create({
