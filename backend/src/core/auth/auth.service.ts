@@ -4,7 +4,6 @@ import type { StringValue } from "ms";
 import prisma from "../../config/db.config";
 import { ENV } from "../../constants/env";
 import { RegisterInput, LoginInput, UpdateProfileInput } from "./auth.schema";
-import { createUserInstance } from "../../services/whatsapp.service";
 import { verifySubaccountCode } from "../../services/paystack.service";
 
 const USER_SELECT = {
@@ -17,7 +16,6 @@ const USER_SELECT = {
   createdAt: true,
   paystackSubaccountCode: true,
   paystackSubaccountActive: true,
-  ultramsgInstanceId: true,
 } as const;
 
 const generateAccessToken = (userId: string): string => {
@@ -61,17 +59,6 @@ export const registerUser = async (input: RegisterInput) => {
     },
     select: { id: true, name: true, email: true, businessName: true },
   });
-
-  const instance = await createUserInstance(user.id, input.phone);
-  if (instance) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        ultramsgInstanceId: instance.instanceId,
-        ultramsgToken: instance.token,
-      },
-    });
-  }
 
   const accessToken = generateAccessToken(user.id);
   const refreshToken = await generateAndStoreRefreshToken(user.id);
