@@ -25,6 +25,20 @@ model User {
     refreshTokens            RefreshToken[]
 }
 
+model PendingUser {
+    id               String   @id @default(cuid())
+    email            String   @unique
+    name             String
+    phone            String
+    businessName     String?
+    password         String
+    verificationCode String
+    codeExpiresAt    DateTime
+    resendCount      Int      @default(0)
+    lastResendAt     DateTime @default(now())
+    createdAt        DateTime @default(now())
+}
+
 model RefreshToken {
     id        String   @id @default(cuid())
     token     String   @unique

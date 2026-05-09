@@ -6,6 +6,8 @@ import {
   logoutUser,
   getMe,
   updateProfile,
+  verifyEmail,
+  resendVerificationCode,
 } from "./auth.service";
 import { sendSuccess, sendError } from "../../utils/response.utils";
 import { AuthRequest } from "../../middleware/auth.middleware";
@@ -13,10 +15,61 @@ import { AuthRequest } from "../../middleware/auth.middleware";
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await registerUser(req.body);
-    sendSuccess(res, 201, "Account created successfully", result);
+    sendSuccess(
+      res,
+      200,
+      "Verification code sent to your email address",
+      result,
+    );
   } catch (error: unknown) {
     const message = (error as Error).message;
-    const status = message === "Email already registered" ? 409 : 500;
+    const status =
+      message === "Email already registered. Please log in instead."
+        ? 409
+        : 500;
+    sendError(res, status, message);
+  }
+};
+
+export const verify = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await verifyEmail(req.body);
+    sendSuccess(res, 201, "Account verified and created successfully", result);
+  } catch (error: unknown) {
+    const message = (error as Error).message;
+    const status =
+      message === "Invalid verification code." ||
+      message === "Verification code has expired. Please request a new one."
+        ? 400
+        : message === "No pending registration found for this email address."
+          ? 404
+          : 500;
+    sendError(res, status, message);
+  }
+};
+
+export const resendCode = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { email } = req.body as { email?: string };
+    if (!email) {
+      sendError(res, 400, "Email is required");
+      return;
+    }
+    const result = await resendVerificationCode(email);
+    sendSuccess(res, 200, "Verification code resent", result);
+  } catch (error: unknown) {
+    const message = (error as Error).message;
+    const status = message.startsWith("Please wait")
+      ? 429
+      : message === "No pending registration found for this email address."
+        ? 404
+        : message ===
+            "Maximum resend attempts reached. Please restart the registration process."
+          ? 429
+          : 500;
     sendError(res, status, message);
   }
 };

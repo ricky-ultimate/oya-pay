@@ -22,9 +22,12 @@ import type {
   Payment,
   PaymentLinkResponse,
   RegisterInput,
+  RegisterPendingResponse,
+  ResendCodeResponse,
   UpdateInvoiceInput,
   UpdateProfileInput,
   User,
+  VerifyEmailInput,
   WhatsAppStatus,
 } from "@/types";
 
@@ -276,14 +279,8 @@ class ApiClient {
     return this.refreshPromise;
   }
 
-  async register(data: RegisterInput): Promise<AuthResponse> {
-    const response = await this.client.post<ApiResponse<AuthResponse>>(
-      "/api/auth/register",
-      data,
-    );
-    const result = response.data.data!;
-    this.setTokens(result.accessToken, result.refreshToken);
-    return result;
+  async register(data: RegisterInput): Promise<RegisterPendingResponse> {
+    return this.registerInitiate(data);
   }
 
   async login(data: LoginInput): Promise<AuthResponse> {
@@ -574,6 +571,33 @@ class ApiClient {
 
   async verifyAndSaveSubaccount(code: string): Promise<void> {
     await this.client.post(`/api/paystack/subaccount/verify/${code}`);
+  }
+
+  async registerInitiate(
+    data: RegisterInput,
+  ): Promise<RegisterPendingResponse> {
+    const response = await this.client.post<
+      ApiResponse<RegisterPendingResponse>
+    >("/api/auth/register", data);
+    return response.data.data!;
+  }
+
+  async verifyEmail(data: VerifyEmailInput): Promise<AuthResponse> {
+    const response = await this.client.post<ApiResponse<AuthResponse>>(
+      "/api/auth/verify",
+      data,
+    );
+    const result = response.data.data!;
+    this.setTokens(result.accessToken, result.refreshToken);
+    return result;
+  }
+
+  async resendVerificationCode(email: string): Promise<ResendCodeResponse> {
+    const response = await this.client.post<ApiResponse<ResendCodeResponse>>(
+      "/api/auth/resend-code",
+      { email },
+    );
+    return response.data.data!;
   }
 }
 
