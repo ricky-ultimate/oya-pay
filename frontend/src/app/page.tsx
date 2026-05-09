@@ -100,7 +100,7 @@ const FEATURES = [
     ),
     title: "Paystack integration",
     description:
-      "Clients pay directly from the invoice. Payments are verified and recorded automatically — no manual reconciliation.",
+      "Clients pay directly from the invoice. Payments are verified and recorded automatically, no manual reconciliation.",
   },
   {
     icon: (
@@ -175,7 +175,7 @@ const STEPS = [
     number: "02",
     title: "Send and schedule",
     description:
-      "Deliver the invoice via Email and WhatsApp simultaneously. Choose your follow-up sequence — OyaPay handles the rest.",
+      "Deliver the invoice via Email and WhatsApp simultaneously. Choose your follow-up sequence, OyaPay handles the rest.",
   },
   {
     number: "03",
@@ -215,7 +215,7 @@ export default function LandingPage() {
           </h1>
           <p className="text-xl text-neutral-500 leading-relaxed max-w-2xl mx-auto mb-10">
             OyaPay automates your invoicing and follow-ups so you can focus on
-            your work — not chasing payments.
+            your work, not chasing payments.
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <Link
@@ -294,8 +294,8 @@ export default function LandingPage() {
               </h2>
               <p className="text-lg text-neutral-500 leading-relaxed mb-8">
                 Define a follow-up sequence once. OyaPay sends pre-due
-                reminders, overdue notices, and final warnings automatically —
-                via Email and WhatsApp — until the invoice is settled.
+                reminders, overdue notices, and final warnings automatically,
+                via Email and WhatsApp, until the invoice is settled.
               </p>
               <ul className="flex flex-col gap-3">
                 {[
@@ -329,7 +329,7 @@ export default function LandingPage() {
               </ul>
             </div>
             <PlaceholderImage
-              description="Follow-up timeline UI: A close-up screenshot or illustration of the OyaPay follow-up sequence configuration panel. Shows a vertical timeline with steps: Pre-due Reminder, First Overdue Notice, Second Overdue, Final Notice — each with day offset controls and Email/WhatsApp channel toggles. Clean, minimal design on white card background."
+              description="Follow-up timeline UI: A close-up screenshot or illustration of the OyaPay follow-up sequence configuration panel. Shows a vertical timeline with steps: Pre-due Reminder, First Overdue Notice, Second Overdue, Final Notice, each with day offset controls and Email/WhatsApp channel toggles. Clean, minimal design on white card background."
               aspectRatio="aspect-square"
             />
           </div>
