@@ -273,6 +273,7 @@ function RecentInvoiceRow({
 }) {
   const isActionable = !["PAID", "CANCELLED", "DRAFT"].includes(invoice.status);
   const hasActiveSequence = (invoice.followUpSchedules?.length ?? 0) > 0;
+  const showChase = isActionable && !hasActiveSequence;
 
   return (
     <div className="flex items-center justify-between px-5 py-4 hover:bg-neutral-50/80 transition-colors group">
@@ -303,15 +304,17 @@ function RecentInvoiceRow({
             })}
           </p>
         </div>
-        {isActionable && !hasActiveSequence && (
-          <button
-            onClick={() => onChase(invoice.id)}
-            disabled={isLoading}
-            className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 border border-primary-200 disabled:opacity-50"
-          >
-            Chase
-          </button>
-        )}
+        <div className="w-[3.25rem] flex items-center justify-end">
+          {showChase && (
+            <button
+              onClick={() => onChase(invoice.id)}
+              disabled={isLoading}
+              className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 border border-primary-200 disabled:opacity-50"
+            >
+              Chase
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
