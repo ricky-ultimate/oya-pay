@@ -6,30 +6,21 @@
     "scripts": {
         "start": "npm run build && dotenv -e .env -- node ./dist/index.js",
         "start:dev": "npm run build && dotenv -e .env.local -- node ./dist/index.js",
-
         "build": "tsc",
         "prebuild": "prisma generate",
-
         "dev": "dotenv -e .env.local -- ts-node-dev ./src/index.ts",
         "dev:prod": "dotenv -e .env -- ts-node-dev ./src/index.ts",
-
         "db:push": "dotenv -e .env.local -- prisma db push",
         "db:push:prod": "dotenv -e .env -- prisma db push",
-
         "db:studio": "dotenv -e .env.local -- prisma studio",
         "db:studio:prod": "dotenv -e .env -- prisma studio",
-
         "db:pull": "dotenv -e .env.local -- prisma db pull",
         "db:pull:prod": "dotenv -e .env -- prisma db pull",
-
         "db:migrate": "dotenv -e .env.local -- prisma migrate dev",
         "db:migrate:prod": "dotenv -e .env -- prisma migrate dev",
-
         "db:migrate:deploy": "dotenv -e .env -- prisma migrate deploy",
-
         "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts",
         "db:seed:prod": "dotenv -e .env -- tsx prisma/seed.ts",
-
         "db:reset": "dotenv -e .env.local -- prisma migrate reset",
         "db:reset:prod": "dotenv -e .env -- prisma migrate reset"
     },
@@ -53,6 +44,7 @@
         "dotenv": "^17.4.2",
         "express": "^5.2.1",
         "express-rate-limit": "^8.4.1",
+        "googleapis": "^171.4.0",
         "helmet": "^8.1.0",
         "jsonwebtoken": "^9.0.3",
         "morgan": "^1.10.1",
