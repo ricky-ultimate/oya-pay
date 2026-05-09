@@ -34,11 +34,11 @@ import { formatNaira, formatDate } from "@/utils/format";
 import { TEMPLATE_LABELS } from "@/utils/constants";
 
 function RecoveryBanner({
-  amount,
+  recoveredAmount,
   followUpNumber,
   onDismiss,
 }: {
-  amount: number;
+  recoveredAmount: number;
   followUpNumber: number;
   onDismiss: () => void;
 }) {
@@ -50,7 +50,7 @@ function RecoveryBanner({
         </div>
         <div>
           <p className="text-sm font-semibold text-success-900">
-            {formatNaira(amount)} recovered by automated reminder
+            {formatNaira(recoveredAmount)} recovered by automated reminder
           </p>
           <p className="text-xs text-success-700 mt-0.5">
             Payment arrived within 48 hours of follow-up #{followUpNumber}
@@ -85,9 +85,6 @@ export default function InvoiceDetailPage() {
   const [paymentRef, setPaymentRef] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
   const [recoveryBannerDismissed, setRecoveryBannerDismissed] = useState(false);
-  const [justRecoveredAmount, setJustRecoveredAmount] = useState<number | null>(
-    null,
-  );
   const prevStatusRef = useRef<string | null>(null);
 
   const { data: invoice, isLoading } = useQuery<Invoice>({
@@ -139,9 +136,11 @@ export default function InvoiceDetailPage() {
       current === "PAID" &&
       invoice.followUpAttribution
     ) {
-      const total = Number(invoice.total);
-      setJustRecoveredAmount(total);
-      toast(`Automated reminder recovered ${formatNaira(total)}`, "success");
+      const recovered = invoice.followUpAttribution.recoveredAmount;
+      toast(
+        `Automated reminder recovered ${formatNaira(recovered)}`,
+        "success",
+      );
     }
     prevStatusRef.current = current;
   }, [invoice, toast]);
@@ -255,15 +254,13 @@ export default function InvoiceDetailPage() {
   const remainingAmount =
     Number(invoice.total) -
     (invoice.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0);
+
   const showTimeline =
     !!invoice.sentAt || (activity?.schedules && activity.schedules.length > 0);
+
   const showRecoveryBanner =
     !recoveryBannerDismissed &&
-    !!invoice.followUpAttribution &&
-    ["PAID", "PARTIAL"].includes(invoice.status);
-  const showJustRecoveredBanner =
-    !recoveryBannerDismissed &&
-    justRecoveredAmount !== null &&
+    invoice.status === "PAID" &&
     !!invoice.followUpAttribution;
 
   return (
@@ -299,21 +296,13 @@ export default function InvoiceDetailPage() {
         )}
       </div>
 
-      {(showJustRecoveredBanner || showRecoveryBanner) &&
-        invoice.followUpAttribution && (
-          <RecoveryBanner
-            amount={
-              justRecoveredAmount !== null
-                ? justRecoveredAmount
-                : Number(invoice.total)
-            }
-            followUpNumber={invoice.followUpAttribution.followUpNumber}
-            onDismiss={() => {
-              setRecoveryBannerDismissed(true);
-              setJustRecoveredAmount(null);
-            }}
-          />
-        )}
+      {showRecoveryBanner && invoice.followUpAttribution && (
+        <RecoveryBanner
+          recoveredAmount={invoice.followUpAttribution.recoveredAmount}
+          followUpNumber={invoice.followUpAttribution.followUpNumber}
+          onDismiss={() => setRecoveryBannerDismissed(true)}
+        />
+      )}
 
       <div className="bg-white rounded-xl border border-neutral-200 p-5 grid grid-cols-2 gap-4">
         <div>
@@ -341,7 +330,7 @@ export default function InvoiceDetailPage() {
           <p className="text-xs text-neutral-600">
             Due: {formatDate(invoice.dueDate)}
           </p>
-          {invoice.followUpAttribution && (
+          {invoice.followUpAttribution && invoice.status === "PAID" && (
             <p className="text-xs text-success-700 font-medium mt-1">
               Paid after follow-up #{invoice.followUpAttribution.followUpNumber}
               {invoice.followUpAttribution.template

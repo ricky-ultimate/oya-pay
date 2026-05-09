@@ -162,6 +162,21 @@ const getRecoveryStats = async (
   return { totalRecovered, unprotectedOutstanding };
 };
 
+const computeNetOutstanding = (
+  invoices: Array<{
+    total: unknown;
+    payments: Array<{ amount: unknown }>;
+  }>,
+): number => {
+  let net = 0;
+  for (const inv of invoices) {
+    const paid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
+    const outstanding = Number(inv.total) - paid;
+    if (outstanding > 0) net += outstanding;
+  }
+  return net;
+};
+
 const getPipelineStats = async (
   userId: string,
 ): Promise<{
@@ -360,7 +375,7 @@ export const getDashboardStats = async (userId: string) => {
     totalInvoices,
     statusCounts,
     totalRevenue,
-    outstanding,
+    outstandingInvoices,
     recentInvoices,
     monthlyRevenue,
     topOverdueClients,
@@ -380,7 +395,7 @@ export const getDashboardStats = async (userId: string) => {
       _sum: { amount: true },
     }),
 
-    prisma.invoice.aggregate({
+    prisma.invoice.findMany({
       where: {
         userId,
         status: {
@@ -391,7 +406,7 @@ export const getDashboardStats = async (userId: string) => {
           ],
         },
       },
-      _sum: { total: true },
+      include: { payments: { select: { amount: true } } },
     }),
 
     prisma.invoice.findMany({
@@ -424,11 +439,13 @@ export const getDashboardStats = async (userId: string) => {
     {} as Record<string, number>,
   );
 
+  const outstandingAmount = computeNetOutstanding(outstandingInvoices);
+
   return {
     overview: {
       totalInvoices,
       totalRevenue: Number(totalRevenue._sum.amount ?? 0),
-      outstandingAmount: Number(outstanding._sum.total ?? 0),
+      outstandingAmount,
       totalRecovered: recoveryStats.totalRecovered,
       unprotectedOutstanding: recoveryStats.unprotectedOutstanding,
       pendingCollection: pipelineStats.pendingCollection,
