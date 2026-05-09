@@ -236,6 +236,8 @@ export const triggerScheduledFollowUp = async (
       to: invoice.client.email,
       subject: tpl.subject,
       html: tpl.html + noteHtml,
+      replyTo: invoice.user.email,
+      fromName: invoice.user.businessName ?? invoice.user.name,
     });
   } else if (
     schedule.channel === FollowUpChannel.WHATSAPP &&
@@ -303,6 +305,8 @@ export const escalateFollowUp = async (
       to: invoice.client.email,
       subject: tpl.subject,
       html: tpl.html + noteHtml,
+      replyTo: invoice.user.email,
+      fromName: invoice.user.businessName ?? invoice.user.name,
     });
   } else if (channel === FollowUpChannel.WHATSAPP && invoice.client.phone) {
     const defaultMessage = getFollowUpWhatsAppTemplate(template, templateData);
@@ -354,6 +358,8 @@ export const processDueFollowUps = async (): Promise<void> => {
         to: invoice.client.email,
         subject: tpl.subject,
         html: tpl.html,
+        replyTo: invoice.user.email,
+        fromName: invoice.user.businessName ?? invoice.user.name,
       });
     } else if (
       schedule.channel === FollowUpChannel.WHATSAPP &&
