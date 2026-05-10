@@ -21,6 +21,10 @@ const followUpStepSchema = z.object({
 export const createInvoiceSchema = z.object({
   title: z.string().min(1),
   clientId: z.string().min(1),
+  projectId: z.string().optional(),
+  invoiceType: z
+    .enum(["STANDARD", "DEPOSIT", "MILESTONE", "FINAL"])
+    .default("STANDARD"),
   dueDate: z.string().datetime(),
   currency: z.string().default("NGN"),
   tax: z.number().min(0).default(0),

@@ -4,12 +4,31 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Client, ClientStats, InvoiceStatus } from "@/types";
+import type {
+  Client,
+  ClientStats,
+  Invoice,
+  InvoiceStatus,
+  InvoiceType,
+} from "@/types";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReliabilityBadge } from "@/components/ui/reliability-badge";
 import { formatNaira } from "@/utils/format";
+import { INVOICE_TYPE_CONFIG, INVOICE_TYPE_ORDER } from "@/utils/constants";
+
+function InvoiceTypeBadge({ type }: { type: InvoiceType }) {
+  const config = INVOICE_TYPE_CONFIG[type];
+  if (!config) return null;
+  return (
+    <span
+      className={`inline-flex items-center h-4 px-1.5 rounded text-[10px] font-semibold ${config.className}`}
+    >
+      {config.label}
+    </span>
+  );
+}
 
 function StatTile({
   label,
@@ -47,7 +66,6 @@ function PaymentIntelligencePanel({ stats }: { stats: ClientStats }) {
         </h2>
         <ReliabilityBadge score={stats.reliabilityScore} />
       </div>
-
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <StatTile
           label="Invoices"
@@ -74,11 +92,46 @@ function PaymentIntelligencePanel({ stats }: { stats: ClientStats }) {
           sub="follow-ups sent"
         />
       </div>
-
       <div className="bg-neutral-50 rounded-lg px-4 py-3 text-sm text-neutral-700">
         {avgLabel}
       </div>
     </div>
+  );
+}
+
+function InvoiceRow({ invoice }: { invoice: Invoice }) {
+  return (
+    <Link
+      href={`/invoices/${invoice.id}`}
+      className="flex items-center justify-between px-5 py-3.5 hover:bg-neutral-50 transition-colors"
+    >
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <StatusBadge status={invoice.status as InvoiceStatus} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm font-medium text-neutral-900 truncate">
+              {invoice.title}
+            </p>
+            <InvoiceTypeBadge type={invoice.invoiceType} />
+          </div>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            {invoice.invoiceNumber}
+          </p>
+        </div>
+      </div>
+      <div className="text-right ml-4 flex-shrink-0">
+        <p className="text-sm font-semibold tabular-nums">
+          {formatNaira(Number(invoice.total))}
+        </p>
+        <p className="text-xs text-neutral-400">
+          {new Date(invoice.dueDate).toLocaleDateString("en-NG", {
+            day: "numeric",
+            month: "short",
+            year: "2-digit",
+          })}
+        </p>
+      </div>
+    </Link>
   );
 }
 
@@ -109,6 +162,41 @@ export default function ClientDetailPage() {
   }
 
   if (!client) return null;
+
+  const allInvoices = (client.invoices ?? []) as Invoice[];
+
+  const projectMap = new Map<
+    string,
+    { id: string; name: string; invoices: Invoice[] }
+  >();
+  const standaloneInvoices: Invoice[] = [];
+
+  for (const invoice of allInvoices) {
+    if (invoice.projectId && invoice.project) {
+      const existing = projectMap.get(invoice.projectId);
+      if (existing) {
+        existing.invoices.push(invoice);
+      } else {
+        projectMap.set(invoice.projectId, {
+          id: invoice.projectId,
+          name: invoice.project.name,
+          invoices: [invoice],
+        });
+      }
+    } else {
+      standaloneInvoices.push(invoice);
+    }
+  }
+
+  const projectGroups = Array.from(projectMap.values());
+
+  const sortByType = (invoices: Invoice[]) =>
+    [...invoices].sort(
+      (a, b) =>
+        (INVOICE_TYPE_ORDER[a.invoiceType] ?? 3) -
+          (INVOICE_TYPE_ORDER[b.invoiceType] ?? 3) ||
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-5">
@@ -189,59 +277,90 @@ export default function ClientDetailPage() {
 
       <div className="flex gap-3">
         <Link
+          href={`/projects/create?clientId=${client.id}`}
+          className="flex-1"
+        >
+          <Button variant="secondary" className="w-full">
+            New Project
+          </Button>
+        </Link>
+        <Link
           href={`/invoices/create?clientId=${client.id}`}
           className="flex-1"
         >
-          <Button className="w-full">Create Invoice</Button>
+          <Button className="w-full">New Invoice</Button>
         </Link>
       </div>
 
-      <div className="bg-white rounded-xl border border-neutral-200">
-        <div className="px-5 py-3.5 border-b border-neutral-200">
-          <h2 className="text-sm font-semibold text-neutral-900">
-            Invoice History
-          </h2>
+      {projectGroups.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {projectGroups.map((group) => (
+            <div
+              key={group.id}
+              className="bg-white rounded-xl border border-neutral-200 overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-neutral-100 bg-neutral-50/60">
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
+                    />
+                  </svg>
+                  <h3 className="text-sm font-semibold text-neutral-900">
+                    {group.name}
+                  </h3>
+                  <span className="text-xs text-neutral-400">
+                    {group.invoices.length} invoice
+                    {group.invoices.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <Link
+                  href={`/projects/${group.id}`}
+                  className="text-xs text-primary-600 font-semibold hover:underline"
+                >
+                  View project
+                </Link>
+              </div>
+              <div className="divide-y divide-neutral-100">
+                {sortByType(group.invoices).map((invoice) => (
+                  <InvoiceRow key={invoice.id} invoice={invoice} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-        {!client.invoices?.length ? (
-          <div className="px-5 py-10 text-center text-sm text-neutral-500">
-            No invoices yet for this client.
+      )}
+
+      {standaloneInvoices.length > 0 && (
+        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-neutral-100">
+            <h2 className="text-sm font-semibold text-neutral-900">
+              {projectGroups.length > 0
+                ? "Standalone Invoices"
+                : "Invoice History"}
+            </h2>
           </div>
-        ) : (
           <div className="divide-y divide-neutral-100">
-            {client.invoices.map((invoice) => (
-              <Link
-                key={invoice.id}
-                href={`/invoices/${invoice.id}`}
-                className="flex items-center justify-between px-5 py-3.5 hover:bg-neutral-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={invoice.status as InvoiceStatus} />
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">
-                      {invoice.title}
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                      {invoice.invoiceNumber}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right ml-4 flex-shrink-0">
-                  <p className="text-sm font-semibold tabular-nums">
-                    {formatNaira(Number(invoice.total))}
-                  </p>
-                  <p className="text-xs text-neutral-400">
-                    {new Date(invoice.dueDate).toLocaleDateString("en-NG", {
-                      day: "numeric",
-                      month: "short",
-                      year: "2-digit",
-                    })}
-                  </p>
-                </div>
-              </Link>
+            {standaloneInvoices.map((invoice) => (
+              <InvoiceRow key={invoice.id} invoice={invoice} />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {allInvoices.length === 0 && (
+        <div className="bg-white rounded-xl border border-neutral-200 px-5 py-10 text-center text-sm text-neutral-500">
+          No invoices yet for this client.
+        </div>
+      )}
     </div>
   );
 }

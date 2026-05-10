@@ -22,10 +22,42 @@ export interface FollowUpStep {
   enabled: boolean;
 }
 
-export const buildDefaultSteps = (hasPhone: boolean): FollowUpStep[] => {
+export const buildDefaultSteps = (
+  hasPhone: boolean,
+  invoiceType: string = "STANDARD",
+): FollowUpStep[] => {
   const channels: FollowUpChannel[] = hasPhone
     ? [FollowUpChannel.EMAIL, FollowUpChannel.WHATSAPP]
     : [FollowUpChannel.EMAIL];
+
+  if (invoiceType === "DEPOSIT") {
+    return [
+      {
+        template: FollowUpTemplate.PRE_DUE_REMINDER,
+        offsetDays: -1,
+        channels: [...channels],
+        enabled: true,
+      },
+      {
+        template: FollowUpTemplate.FIRST_OVERDUE,
+        offsetDays: 2,
+        channels: [...channels],
+        enabled: true,
+      },
+      {
+        template: FollowUpTemplate.SECOND_OVERDUE,
+        offsetDays: 5,
+        channels: [...channels],
+        enabled: true,
+      },
+      {
+        template: FollowUpTemplate.FINAL_NOTICE,
+        offsetDays: 10,
+        channels: [...channels],
+        enabled: true,
+      },
+    ];
+  }
 
   return [
     {
@@ -68,7 +100,8 @@ export const scheduleFollowUpsForInvoice = async (
 
   const dueDate = new Date(invoice.dueDate);
   const now = new Date();
-  const resolvedSteps = steps ?? buildDefaultSteps(!!invoice.client.phone);
+  const resolvedSteps =
+    steps ?? buildDefaultSteps(!!invoice.client.phone, invoice.invoiceType);
 
   const toCreate = resolvedSteps
     .filter((step) => step.enabled)
