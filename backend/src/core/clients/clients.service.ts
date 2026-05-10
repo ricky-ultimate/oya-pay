@@ -68,7 +68,12 @@ export const getClientById = async (userId: string, clientId: string) =>
   prisma.client.findFirst({
     where: { id: clientId, userId },
     include: {
-      invoices: { orderBy: { createdAt: "desc" }, take: 10 },
+      invoices: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          project: { select: { id: true, name: true } },
+        },
+      },
     },
   });
 
