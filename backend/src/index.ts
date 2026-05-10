@@ -20,6 +20,7 @@ import analyticsRoutes from "./core/analytics/analytics.routes";
 import trackingRoutes from "./core/tracking/tracking.routes";
 import paystackRoutes from "./core/paystack/paystack.routes";
 import whatsappRoutes from "./core/whatsapp/whatsapp.routes";
+import projectRoutes from "./core/projects/projects.routes";
 
 const requiredEnv: (keyof typeof ENV)[] = [
   "JWT_ACCESS_SECRET",
@@ -73,6 +74,7 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/paystack", paystackRoutes);
+app.use("/api/projects", projectRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/webhooks", webhookRoutes);
 app.use("/api/analytics", analyticsRoutes);
