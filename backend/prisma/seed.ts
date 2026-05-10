@@ -2,6 +2,8 @@ import "dotenv/config";
 import {
   PrismaClient,
   InvoiceStatus,
+  InvoiceType,
+  ProjectStatus,
   FollowUpChannel,
   FollowUpTemplate,
   FollowUpStatus,
@@ -37,6 +39,7 @@ async function main() {
   await prisma.payment.deleteMany();
   await prisma.invoiceItem.deleteMany();
   await prisma.invoice.deleteMany();
+  await prisma.project.deleteMany();
   await prisma.client.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
@@ -63,21 +66,34 @@ async function main() {
     },
   });
 
+  const projectAmaka = await prisma.project.create({
+    data: {
+      userId: user.id,
+      clientId: clientOnTime.id,
+      name: "Brand & Web Design Package",
+      totalValue: 950000,
+      paymentTermsDays: 14,
+      status: ProjectStatus.COMPLETED,
+    },
+  });
+
   const inv1a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-001",
-      title: "Brand Identity Design",
+      title: "Brand Identity Design — Deposit",
       userId: user.id,
       clientId: clientOnTime.id,
+      projectId: projectAmaka.id,
+      invoiceType: InvoiceType.DEPOSIT,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 60),
-      dueDate: subtractDays(now, 30),
+      dueDate: subtractDays(now, 55),
       currency: "NGN",
       subtotal: 350000,
       tax: 0,
       total: 350000,
       sentAt: subtractDays(now, 60),
-      paidAt: subtractDays(now, 33),
+      paidAt: subtractDays(now, 58),
       paystackRef: "OYAPAY-INV-SEED-001-SEED",
       items: {
         create: [
@@ -110,26 +126,28 @@ async function main() {
       amount: 350000,
       method: "bank_transfer",
       reference: "TRF-AMAKA-001",
-      note: "Full payment received",
-      paidAt: subtractDays(now, 33),
+      note: "Deposit received",
+      paidAt: subtractDays(now, 58),
     },
   });
 
   const inv1b = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-002",
-      title: "Website UI Design",
+      title: "Website UI Design — Milestone",
       userId: user.id,
       clientId: clientOnTime.id,
+      projectId: projectAmaka.id,
+      invoiceType: InvoiceType.MILESTONE,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 45),
-      dueDate: subtractDays(now, 15),
+      dueDate: subtractDays(now, 31),
       currency: "NGN",
       subtotal: 480000,
       tax: 0,
       total: 480000,
       sentAt: subtractDays(now, 45),
-      paidAt: subtractDays(now, 15),
+      paidAt: subtractDays(now, 31),
       paystackRef: "OYAPAY-INV-SEED-002-SEED",
       items: {
         create: [
@@ -156,16 +174,18 @@ async function main() {
       amount: 480000,
       method: "paystack",
       reference: "PSK-AMAKA-002",
-      paidAt: subtractDays(now, 15),
+      paidAt: subtractDays(now, 31),
     },
   });
 
   await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-003",
-      title: "Social Media Kit",
+      title: "Social Media Kit — Final Payment",
       userId: user.id,
       clientId: clientOnTime.id,
+      projectId: projectAmaka.id,
+      invoiceType: InvoiceType.FINAL,
       status: InvoiceStatus.PENDING,
       issueDate: subtractDays(now, 7),
       dueDate: addDays(now, 7),
@@ -204,21 +224,34 @@ async function main() {
     },
   });
 
+  const projectEmeka = await prisma.project.create({
+    data: {
+      userId: user.id,
+      clientId: clientSometimesLate.id,
+      name: "Q3 Media Production",
+      totalValue: 650000,
+      paymentTermsDays: 14,
+      status: ProjectStatus.ACTIVE,
+    },
+  });
+
   const inv2a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-004",
-      title: "Product Photography",
+      title: "Product Photography — Deposit",
       userId: user.id,
       clientId: clientSometimesLate.id,
+      projectId: projectEmeka.id,
+      invoiceType: InvoiceType.DEPOSIT,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 90),
-      dueDate: subtractDays(now, 60),
+      dueDate: subtractDays(now, 85),
       currency: "NGN",
       subtotal: 200000,
       tax: 0,
       total: 200000,
       sentAt: subtractDays(now, 90),
-      paidAt: subtractDays(now, 50),
+      paidAt: subtractDays(now, 83),
       paystackRef: "OYAPAY-INV-SEED-004-SEED",
       items: {
         create: [
@@ -245,7 +278,7 @@ async function main() {
       amount: 200000,
       method: "bank_transfer",
       reference: "TRF-EMEKA-001",
-      paidAt: subtractDays(now, 50),
+      paidAt: subtractDays(now, 83),
     },
   });
 
@@ -255,15 +288,17 @@ async function main() {
       title: "Video Editing — Q3 Reel",
       userId: user.id,
       clientId: clientSometimesLate.id,
+      projectId: projectEmeka.id,
+      invoiceType: InvoiceType.MILESTONE,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 70),
-      dueDate: subtractDays(now, 40),
+      dueDate: subtractDays(now, 56),
       currency: "NGN",
       subtotal: 150000,
       tax: 0,
       total: 150000,
       sentAt: subtractDays(now, 70),
-      paidAt: subtractDays(now, 40),
+      paidAt: subtractDays(now, 54),
       paystackRef: "OYAPAY-INV-SEED-005-SEED",
       items: {
         create: [
@@ -290,19 +325,21 @@ async function main() {
       amount: 150000,
       method: "paystack",
       reference: "PSK-EMEKA-002",
-      paidAt: subtractDays(now, 40),
+      paidAt: subtractDays(now, 54),
     },
   });
 
   const inv2c = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-006",
-      title: "Annual Report Design",
+      title: "Annual Report Design — Final",
       userId: user.id,
       clientId: clientSometimesLate.id,
+      projectId: projectEmeka.id,
+      invoiceType: InvoiceType.FINAL,
       status: InvoiceStatus.PARTIAL,
       issueDate: subtractDays(now, 20),
-      dueDate: subtractDays(now, 5),
+      dueDate: subtractDays(now, 6),
       currency: "NGN",
       subtotal: 300000,
       tax: 0,
@@ -341,7 +378,7 @@ async function main() {
       method: "bank_transfer",
       reference: "TRF-EMEKA-003",
       note: "Part payment",
-      paidAt: subtractDays(now, 6),
+      paidAt: subtractDays(now, 7),
     },
   });
 
@@ -361,9 +398,9 @@ async function main() {
       invoiceId: inv2c.id,
       channel: FollowUpChannel.WHATSAPP,
       template: FollowUpTemplate.PRE_DUE_REMINDER,
-      message: `Hi Emeka, a reminder that invoice INV-SEED-006 for NGN 300,000 is due on ${subtractDays(now, 5).toLocaleDateString("en-NG")}.`,
+      message: `Hi Emeka, a reminder that invoice INV-SEED-006 for NGN 300,000 is due on ${subtractDays(now, 6).toLocaleDateString("en-NG")}.`,
       status: "SENT",
-      sentAt: subtractDays(now, 8),
+      sentAt: subtractDays(now, 9),
     },
   });
 
@@ -397,21 +434,34 @@ async function main() {
     },
   });
 
+  const projectBiodun = await prisma.project.create({
+    data: {
+      userId: user.id,
+      clientId: clientLate.id,
+      name: "Corporate Media Coverage",
+      totalValue: 680000,
+      paymentTermsDays: 14,
+      status: ProjectStatus.ACTIVE,
+    },
+  });
+
   const inv3a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-007",
-      title: "Corporate Event Coverage",
+      title: "Corporate Event Coverage — Deposit",
       userId: user.id,
       clientId: clientLate.id,
+      projectId: projectBiodun.id,
+      invoiceType: InvoiceType.DEPOSIT,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 120),
-      dueDate: subtractDays(now, 90),
+      dueDate: subtractDays(now, 115),
       currency: "NGN",
       subtotal: 500000,
       tax: 0,
       total: 500000,
       sentAt: subtractDays(now, 120),
-      paidAt: subtractDays(now, 72),
+      paidAt: subtractDays(now, 108),
       paystackRef: "OYAPAY-INV-SEED-007-SEED",
       items: {
         create: [
@@ -444,25 +494,27 @@ async function main() {
       amount: 500000,
       method: "bank_transfer",
       reference: "TRF-BIODUN-001",
-      paidAt: subtractDays(now, 72),
+      paidAt: subtractDays(now, 108),
     },
   });
 
   const inv3b = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-008",
-      title: "Office Interior Photography",
+      title: "Office Interior Photography — Milestone",
       userId: user.id,
       clientId: clientLate.id,
+      projectId: projectBiodun.id,
+      invoiceType: InvoiceType.MILESTONE,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 80),
-      dueDate: subtractDays(now, 50),
+      dueDate: subtractDays(now, 66),
       currency: "NGN",
       subtotal: 180000,
       tax: 0,
       total: 180000,
       sentAt: subtractDays(now, 80),
-      paidAt: subtractDays(now, 28),
+      paidAt: subtractDays(now, 44),
       paystackRef: "OYAPAY-INV-SEED-008-SEED",
       items: {
         create: [
@@ -489,7 +541,7 @@ async function main() {
       amount: 180000,
       method: "cash",
       reference: "CASH-BIODUN-002",
-      paidAt: subtractDays(now, 28),
+      paidAt: subtractDays(now, 44),
     },
   });
 
@@ -499,9 +551,10 @@ async function main() {
       title: "Executive Headshots",
       userId: user.id,
       clientId: clientLate.id,
+      invoiceType: InvoiceType.STANDARD,
       status: InvoiceStatus.OVERDUE,
       issueDate: subtractDays(now, 44),
-      dueDate: subtractDays(now, 14),
+      dueDate: subtractDays(now, 30),
       currency: "NGN",
       subtotal: 250000,
       tax: 0,
@@ -543,9 +596,9 @@ async function main() {
       invoiceId: inv3c.id,
       channel: FollowUpChannel.WHATSAPP,
       template: FollowUpTemplate.PRE_DUE_REMINDER,
-      message: `Hi Biodun, a reminder that invoice INV-SEED-009 for NGN 250,000 is due on ${subtractDays(now, 14).toLocaleDateString("en-NG")}.`,
+      message: `Hi Biodun, a reminder that invoice INV-SEED-009 for NGN 250,000 is due on ${subtractDays(now, 30).toLocaleDateString("en-NG")}.`,
       status: "SENT",
-      sentAt: subtractDays(now, 17),
+      sentAt: subtractDays(now, 33),
     },
   });
 
@@ -556,29 +609,7 @@ async function main() {
       template: FollowUpTemplate.FIRST_OVERDUE,
       message: "Invoice INV-SEED-009 is now overdue",
       status: "SENT",
-      sentAt: subtractDays(now, 13),
-    },
-  });
-
-  await prisma.followUpLog.create({
-    data: {
-      invoiceId: inv3c.id,
-      channel: FollowUpChannel.WHATSAPP,
-      template: FollowUpTemplate.FIRST_OVERDUE,
-      message: `Hi Biodun, invoice INV-SEED-009 for NGN 250,000 was due on ${subtractDays(now, 14).toLocaleDateString("en-NG")} and is now overdue. Please arrange payment.`,
-      status: "SENT",
-      sentAt: subtractDays(now, 13),
-    },
-  });
-
-  await prisma.followUpSchedule.create({
-    data: {
-      invoiceId: inv3c.id,
-      channel: FollowUpChannel.EMAIL,
-      template: FollowUpTemplate.SECOND_OVERDUE,
-      scheduledAt: addDays(subtractDays(now, 14), 7),
-      status: FollowUpStatus.SENT,
-      sentAt: subtractDays(now, 7),
+      sentAt: subtractDays(now, 29),
     },
   });
 
@@ -611,21 +642,34 @@ async function main() {
     },
   });
 
+  const projectEze = await prisma.project.create({
+    data: {
+      userId: user.id,
+      clientId: clientGhost.id,
+      name: "Brand Consultation",
+      totalValue: 450000,
+      paymentTermsDays: 14,
+      status: ProjectStatus.ACTIVE,
+    },
+  });
+
   const inv4a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-010",
-      title: "Brand Consultation (Phase 1)",
+      title: "Brand Consultation — Deposit",
       userId: user.id,
       clientId: clientGhost.id,
+      projectId: projectEze.id,
+      invoiceType: InvoiceType.DEPOSIT,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 150),
-      dueDate: subtractDays(now, 120),
+      dueDate: subtractDays(now, 145),
       currency: "NGN",
       subtotal: 100000,
       tax: 0,
       total: 100000,
       sentAt: subtractDays(now, 150),
-      paidAt: subtractDays(now, 90),
+      paidAt: subtractDays(now, 143),
       paystackRef: "OYAPAY-INV-SEED-010-SEED",
       items: {
         create: [
@@ -646,25 +690,27 @@ async function main() {
       amount: 100000,
       method: "bank_transfer",
       reference: "TRF-EZE-001",
-      paidAt: subtractDays(now, 90),
+      paidAt: subtractDays(now, 143),
     },
   });
 
   const inv4b = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-011",
-      title: "Brand Consultation (Phase 2)",
+      title: "Brand Consultation — Phase 2 Milestone",
       userId: user.id,
       clientId: clientGhost.id,
+      projectId: projectEze.id,
+      invoiceType: InvoiceType.MILESTONE,
       status: InvoiceStatus.OVERDUE,
       issueDate: subtractDays(now, 65),
-      dueDate: subtractDays(now, 35),
+      dueDate: subtractDays(now, 51),
       currency: "NGN",
       subtotal: 150000,
       tax: 0,
       total: 150000,
       sentAt: subtractDays(now, 65),
-      notes: "As agreed, payment due 30 days from invoice date.",
+      notes: "As agreed, payment due 14 days from invoice date.",
       paystackRef: "OYAPAY-INV-SEED-011-SEED",
       items: {
         create: [
@@ -700,89 +746,21 @@ async function main() {
     data: {
       invoiceId: inv4b.id,
       channel: FollowUpChannel.EMAIL,
-      template: FollowUpTemplate.PRE_DUE_REMINDER,
-      message: "Reminder: Invoice INV-SEED-011 due soon",
-      status: "SENT",
-      sentAt: subtractDays(now, 38),
-    },
-  });
-
-  await prisma.followUpLog.create({
-    data: {
-      invoiceId: inv4b.id,
-      channel: FollowUpChannel.EMAIL,
-      template: FollowUpTemplate.FIRST_OVERDUE,
-      message: "Invoice INV-SEED-011 is now overdue",
-      status: "SENT",
-      sentAt: subtractDays(now, 34),
-    },
-  });
-
-  await prisma.followUpLog.create({
-    data: {
-      invoiceId: inv4b.id,
-      channel: FollowUpChannel.EMAIL,
-      template: FollowUpTemplate.SECOND_OVERDUE,
-      message: "Second notice: Invoice INV-SEED-011 overdue",
-      status: "SENT",
-      sentAt: subtractDays(now, 28),
-    },
-  });
-
-  await prisma.followUpLog.create({
-    data: {
-      invoiceId: inv4b.id,
-      channel: FollowUpChannel.EMAIL,
       template: FollowUpTemplate.FINAL_NOTICE,
       message: "Final notice: Invoice INV-SEED-011",
       status: "SENT",
-      sentAt: subtractDays(now, 21),
+      sentAt: subtractDays(now, 37),
     },
-  });
-
-  await prisma.followUpSchedule.createMany({
-    data: [
-      {
-        invoiceId: inv4b.id,
-        channel: FollowUpChannel.EMAIL,
-        template: FollowUpTemplate.PRE_DUE_REMINDER,
-        scheduledAt: subtractDays(now, 38),
-        status: FollowUpStatus.SENT,
-        sentAt: subtractDays(now, 38),
-      },
-      {
-        invoiceId: inv4b.id,
-        channel: FollowUpChannel.EMAIL,
-        template: FollowUpTemplate.FIRST_OVERDUE,
-        scheduledAt: subtractDays(now, 34),
-        status: FollowUpStatus.SENT,
-        sentAt: subtractDays(now, 34),
-      },
-      {
-        invoiceId: inv4b.id,
-        channel: FollowUpChannel.EMAIL,
-        template: FollowUpTemplate.SECOND_OVERDUE,
-        scheduledAt: subtractDays(now, 28),
-        status: FollowUpStatus.SENT,
-        sentAt: subtractDays(now, 28),
-      },
-      {
-        invoiceId: inv4b.id,
-        channel: FollowUpChannel.EMAIL,
-        template: FollowUpTemplate.FINAL_NOTICE,
-        scheduledAt: subtractDays(now, 21),
-        status: FollowUpStatus.SENT,
-        sentAt: subtractDays(now, 21),
-      },
-    ],
   });
 
   await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-012",
-      title: "Brand Guidelines Document",
+      title: "Brand Guidelines Document — Final",
       userId: user.id,
       clientId: clientGhost.id,
+      projectId: projectEze.id,
+      invoiceType: InvoiceType.FINAL,
       status: InvoiceStatus.DRAFT,
       issueDate: now,
       dueDate: addDays(now, 14),
@@ -819,6 +797,7 @@ async function main() {
       title: "E-commerce Photography",
       userId: user.id,
       clientId: clientNew.id,
+      invoiceType: InvoiceType.STANDARD,
       status: InvoiceStatus.PENDING,
       issueDate: subtractDays(now, 3),
       dueDate: addDays(now, 11),
@@ -863,15 +842,16 @@ async function main() {
       title: "Music Video Production",
       userId: user.id,
       clientId: clientMixed.id,
+      invoiceType: InvoiceType.STANDARD,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 55),
-      dueDate: subtractDays(now, 25),
+      dueDate: subtractDays(now, 41),
       currency: "NGN",
       subtotal: 800000,
       tax: 0,
       total: 800000,
       sentAt: subtractDays(now, 55),
-      paidAt: subtractDays(now, 24),
+      paidAt: subtractDays(now, 40),
       paystackRef: "OYAPAY-INV-SEED-014-SEED",
       items: {
         create: [
@@ -904,7 +884,7 @@ async function main() {
       amount: 800000,
       method: "bank_transfer",
       reference: "TRF-SEGUN-001",
-      paidAt: subtractDays(now, 24),
+      paidAt: subtractDays(now, 40),
     },
   });
 
@@ -914,6 +894,7 @@ async function main() {
       title: "Podcast Studio Rental",
       userId: user.id,
       clientId: clientMixed.id,
+      invoiceType: InvoiceType.STANDARD,
       status: InvoiceStatus.CANCELLED,
       issueDate: subtractDays(now, 20),
       dueDate: addDays(now, 10),
@@ -942,21 +923,27 @@ async function main() {
   console.log(`Seeded client: ${clientGhost.name}`);
   console.log(`Seeded client: ${clientNew.name}`);
   console.log(`Seeded client: ${clientMixed.name}`);
+  console.log(`Seeded project: ${projectAmaka.name}`);
+  console.log(`Seeded project: ${projectEmeka.name}`);
+  console.log(`Seeded project: ${projectBiodun.name}`);
+  console.log(`Seeded project: ${projectEze.name}`);
 
   console.log("\n─────────────────────────────────────────────");
   console.log("Seed complete.");
   console.log("\nLogin credentials:");
   console.log("  Email:    tunde@oyapay.test");
   console.log("  Password: password123");
-  console.log("\nClients seeded:");
-  console.log("  Amaka Obi         — on-time payer, 2 paid + 1 pending");
-  console.log("  Emeka Nwosu       — sometimes late, 2 paid + 1 partial");
-  console.log("  Biodun Fasanya    — consistently late, 2 paid + 1 overdue");
+  console.log("\nProjects seeded:");
+  console.log("  Brand & Web Design Package  — Amaka Obi       (COMPLETED)");
   console.log(
-    "  Chukwuemeka Eze   — ghost/severely overdue, full chase log, 1 draft",
+    "  Q3 Media Production         — Emeka Nwosu     (ACTIVE, partial final invoice)",
   );
-  console.log("  Ngozi Adaora      — new client, 1 pending");
-  console.log("  Segun Bello       — 1 paid, 1 cancelled");
+  console.log(
+    "  Corporate Media Coverage    — Biodun Fasanya  (ACTIVE, standalone overdue invoice)",
+  );
+  console.log(
+    "  Brand Consultation          — Chukwuemeka Eze (ACTIVE, overdue milestone, draft final)",
+  );
   console.log("─────────────────────────────────────────────\n");
 }
 
