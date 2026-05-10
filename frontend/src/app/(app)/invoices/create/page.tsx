@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import type { Client, ClientStats, CreateInvoiceInput } from "@/types";
+import { api, calculateDueDate } from "@/lib/api";
+import type {
+  Client,
+  ClientStats,
+  CreateInvoiceInput,
+  InvoiceType,
+  Project,
+} from "@/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,14 +30,39 @@ import { SendConfirmedView } from "@/components/invoices/send-confirmed-view";
 import { useToast } from "@/components/ui/toast";
 import { useSendInvoice } from "@/hooks/use-send-invoice";
 
+const INVOICE_TYPE_OPTIONS: {
+  value: InvoiceType;
+  label: string;
+  description: string;
+}[] = [
+  { value: "STANDARD", label: "Standard", description: "Default invoice" },
+  {
+    value: "DEPOSIT",
+    label: "Deposit",
+    description: "Due in 5 days, tight reminders",
+  },
+  {
+    value: "MILESTONE",
+    label: "Milestone",
+    description: "Mid-project delivery",
+  },
+  { value: "FINAL", label: "Final Payment", description: "Project completion" },
+];
+
 function CreateInvoicePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const initialProjectId = searchParams.get("projectId") ?? "";
+  const initialClientId = searchParams.get("clientId") ?? "";
+
   const [title, setTitle] = useState("");
-  const [clientId, setClientId] = useState(searchParams.get("clientId") ?? "");
+  const [projectId, setProjectId] = useState(initialProjectId);
+  const [clientId, setClientId] = useState(initialClientId);
+  const [clientLocked, setClientLocked] = useState(false);
+  const [invoiceType, setInvoiceType] = useState<InvoiceType>("STANDARD");
   const [dueDate, setDueDate] = useState("");
   const [tax, setTax] = useState("0");
   const [notes, setNotes] = useState("");
@@ -41,11 +72,63 @@ function CreateInvoicePageInner() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [projectsHydrated, setProjectsHydrated] = useState(false);
 
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["clients"],
     queryFn: () => api.getClients(),
   });
+
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["projects"],
+    queryFn: () => api.getProjects(),
+  });
+
+  useEffect(() => {
+    if (projects.length === 0 || projectsHydrated) return;
+    setProjectsHydrated(true);
+    if (!initialProjectId) return;
+    const project = projects.find((p) => p.id === initialProjectId);
+    if (!project) return;
+    Promise.resolve().then(() => {
+      setClientId(project.clientId);
+      setClientLocked(true);
+      setDueDate(calculateDueDate("STANDARD", project.paymentTermsDays));
+    });
+  }, [projects, initialProjectId, projectsHydrated]);
+
+  const handleProjectChange = (newProjectId: string) => {
+    setProjectId(newProjectId);
+    setBannerDismissed(false);
+    if (newProjectId) {
+      const project = projects.find((p) => p.id === newProjectId);
+      if (project) {
+        setClientId(project.clientId);
+        setClientLocked(true);
+        setDueDate(calculateDueDate(invoiceType, project.paymentTermsDays));
+      }
+    } else {
+      setClientLocked(false);
+    }
+  };
+
+  const handleInvoiceTypeChange = (newType: InvoiceType) => {
+    setInvoiceType(newType);
+    const selectedProject = projectId
+      ? projects.find((p) => p.id === projectId)
+      : null;
+    setDueDate(
+      calculateDueDate(newType, selectedProject?.paymentTermsDays ?? 14),
+    );
+  };
+
+  const handleClientChange = (newClientId: string) => {
+    setClientId(newClientId);
+    setBannerDismissed(false);
+    if (!dueDate) {
+      setDueDate(calculateDueDate(invoiceType, 14));
+    }
+  };
 
   const selectedClient = clients.find((c) => c.id === clientId) ?? null;
   const hasPhone = !!selectedClient?.phone;
@@ -83,18 +166,15 @@ function CreateInvoicePageInner() {
     invoiceId: pendingInvoiceId ?? "",
     hasPhone,
     dueDate,
+    invoiceType,
   });
-
-  const handleClientChange = (newClientId: string) => {
-    setClientId(newClientId);
-    setBannerDismissed(false);
-  };
 
   const createMutation = useMutation({
     mutationFn: (data: CreateInvoiceInput) => api.createInvoice(data),
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast("Invoice saved as draft", "success");
       router.push(`/invoices/${invoice.id}`);
     },
@@ -106,6 +186,7 @@ function CreateInvoicePageInner() {
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
       setPendingInvoiceId(invoice.id);
       setSendModal(true);
     },
@@ -126,6 +207,8 @@ function CreateInvoicePageInner() {
   const buildPayload = (): CreateInvoiceInput => ({
     title,
     clientId,
+    projectId: projectId || undefined,
+    invoiceType,
     dueDate: new Date(dueDate).toISOString(),
     tax: taxPercent > 0 ? taxAmount : 0,
     notes: notes || undefined,
@@ -160,6 +243,10 @@ function CreateInvoicePageInner() {
 
   const minDate = new Date().toISOString().split("T")[0] as string;
 
+  const clientsForProject = projectId
+    ? clients.filter((c) => c.id === clientId)
+    : clients;
+
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -180,19 +267,57 @@ function CreateInvoicePageInner() {
             error={errors["title"]}
           />
           <Select
+            label="Project (optional)"
+            value={projectId}
+            onChange={(e) => handleProjectChange(e.target.value)}
+          >
+            <option value="">No project — standalone invoice</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.client.name})
+              </option>
+            ))}
+          </Select>
+          <Select
+            label="Invoice Type"
+            value={invoiceType}
+            onChange={(e) =>
+              handleInvoiceTypeChange(e.target.value as InvoiceType)
+            }
+          >
+            {INVOICE_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label} — {opt.description}
+              </option>
+            ))}
+          </Select>
+          <Select
             label="Client"
             value={clientId}
             onChange={(e) => handleClientChange(e.target.value)}
             error={errors["clientId"]}
+            disabled={clientLocked}
           >
             <option value="">Select a client</option>
-            {clients.map((c) => (
+            {(clientLocked ? clients : clientsForProject).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
                 {c.phone ? " (WhatsApp)" : ""}
               </option>
             ))}
           </Select>
+          {clientLocked && (
+            <p className="text-xs text-neutral-400 -mt-2">
+              Client is set by the selected project.{" "}
+              <button
+                type="button"
+                className="text-primary-600 hover:underline"
+                onClick={() => handleProjectChange("")}
+              >
+                Clear project
+              </button>
+            </p>
+          )}
           <Input
             label="Due Date"
             type="date"
@@ -201,6 +326,12 @@ function CreateInvoicePageInner() {
             min={minDate}
             error={errors["dueDate"]}
           />
+          {invoiceType === "DEPOSIT" && (
+            <p className="text-xs text-warning-600 font-medium -mt-2 px-1">
+              Deposit invoices use a compressed follow-up sequence (reminder at
+              day -1, escalations at +2, +5, +10).
+            </p>
+          )}
         </SectionCardBody>
       </SectionCard>
 

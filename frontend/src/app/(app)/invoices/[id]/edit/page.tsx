@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Invoice, Client, UpdateInvoiceInput } from "@/types";
+import type { Invoice, Client, UpdateInvoiceInput, InvoiceType } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,9 +19,17 @@ import {
 import { InvoiceTotals } from "@/components/invoices/invoice-totals";
 import { useToast } from "@/components/ui/toast";
 
+const INVOICE_TYPE_OPTIONS: { value: InvoiceType; label: string }[] = [
+  { value: "STANDARD", label: "Standard" },
+  { value: "DEPOSIT", label: "Deposit" },
+  { value: "MILESTONE", label: "Milestone" },
+  { value: "FINAL", label: "Final Payment" },
+];
+
 interface FormState {
   title: string;
   clientId: string;
+  invoiceType: InvoiceType;
   dueDate: string;
   tax: string;
   notes: string;
@@ -31,6 +39,7 @@ interface FormState {
 const emptyForm: FormState = {
   title: "",
   clientId: "",
+  invoiceType: "STANDARD",
   dueDate: "",
   tax: "0",
   notes: "",
@@ -41,6 +50,7 @@ function invoiceToForm(invoice: Invoice): FormState {
   return {
     title: invoice.title,
     clientId: invoice.clientId,
+    invoiceType: invoice.invoiceType,
     dueDate: invoice.dueDate.split("T")[0] ?? "",
     tax: String(Number(invoice.tax)),
     notes: invoice.notes ?? "",
@@ -96,6 +106,7 @@ export default function EditInvoicePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoice", id] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast("Invoice updated", "success");
       router.push(`/invoices/${id}`);
     },
@@ -106,6 +117,7 @@ export default function EditInvoicePage() {
     updateMutation.mutate({
       title: form.title,
       clientId: form.clientId,
+      invoiceType: form.invoiceType,
       dueDate: new Date(form.dueDate).toISOString(),
       tax: taxPercent > 0 ? taxAmount : 0,
       notes: form.notes || undefined,
@@ -158,6 +170,30 @@ export default function EditInvoicePage() {
         <h1 className="text-2xl font-bold text-neutral-900">Edit Invoice</h1>
       </div>
 
+      {invoice.project && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-neutral-50 border border-neutral-200">
+          <svg
+            className="w-4 h-4 text-neutral-400 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"
+            />
+          </svg>
+          <p className="text-sm text-neutral-600">
+            Part of project:{" "}
+            <span className="font-semibold text-neutral-900">
+              {invoice.project.name}
+            </span>
+          </p>
+        </div>
+      )}
+
       <SectionCard>
         <SectionCardBody className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
@@ -165,9 +201,21 @@ export default function EditInvoicePage() {
           </h2>
           <Input label="Title" value={form.title} onChange={update("title")} />
           <Select
+            label="Invoice Type"
+            value={form.invoiceType}
+            onChange={update("invoiceType")}
+          >
+            {INVOICE_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </Select>
+          <Select
             label="Client"
             value={form.clientId}
             onChange={update("clientId")}
+            disabled={!!invoice.projectId}
           >
             <option value="">Select a client</option>
             {clients.map((c) => (
