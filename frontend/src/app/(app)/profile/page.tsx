@@ -407,13 +407,16 @@ function ProfileInner() {
 
   useEffect(() => {
     if (!user || formHydrated) return;
-    setForm({
+    const next: ProfileForm = {
       name: user.name ?? "",
       businessName: user.businessName ?? "",
       phone: user.phone ?? "",
       logoUrl: user.logoUrl ?? "",
+    };
+    Promise.resolve().then(() => {
+      setForm(next);
+      setFormHydrated(true);
     });
-    setFormHydrated(true);
   }, [user, formHydrated]);
 
   const updateMutation = useMutation({
