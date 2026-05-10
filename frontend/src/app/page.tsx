@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { AuthAwareNav } from "@/components/landing/auth-aware-nav";
 
-const NAV_LINKS = [{ href: "/login", label: "Sign in" }];
-
 function PlaceholderImage({
   description,
   aspectRatio = "aspect-video",
