@@ -10,6 +10,7 @@ import type {
   ClientStats,
   CreateClientInput,
   CreateInvoiceInput,
+  CreateProjectInput,
   DashboardStats,
   FollowUpActivity,
   FollowUpAnalytics,
@@ -17,15 +18,18 @@ import type {
   FollowUpStepConfig,
   Invoice,
   InvoiceStatus,
+  InvoiceType,
   LoginInput,
   LogPaymentInput,
   Payment,
   PaymentLinkResponse,
+  Project,
   RegisterInput,
   RegisterPendingResponse,
   ResendCodeResponse,
   UpdateInvoiceInput,
   UpdateProfileInput,
+  UpdateProjectInput,
   User,
   VerifyEmailInput,
   WhatsAppStatus,
@@ -36,32 +40,24 @@ export * from "@/types";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001";
 
 const DECIMAL_INVOICE_KEYS = ["subtotal", "tax", "total"] as const;
-
 const DECIMAL_ITEM_KEYS = ["quantity", "unitPrice", "total"] as const;
-
 const DECIMAL_PAYMENT_KEYS = ["amount"] as const;
 
 function coerceInvoice(invoice: Record<string, unknown>): void {
   for (const key of DECIMAL_INVOICE_KEYS) {
-    if (invoice[key] !== undefined) {
-      invoice[key] = Number(invoice[key]);
-    }
+    if (invoice[key] !== undefined) invoice[key] = Number(invoice[key]);
   }
   if (Array.isArray(invoice["items"])) {
     for (const item of invoice["items"] as Record<string, unknown>[]) {
       for (const key of DECIMAL_ITEM_KEYS) {
-        if (item[key] !== undefined) {
-          item[key] = Number(item[key]);
-        }
+        if (item[key] !== undefined) item[key] = Number(item[key]);
       }
     }
   }
   if (Array.isArray(invoice["payments"])) {
     for (const payment of invoice["payments"] as Record<string, unknown>[]) {
       for (const key of DECIMAL_PAYMENT_KEYS) {
-        if (payment[key] !== undefined) {
-          payment[key] = Number(payment[key]);
-        }
+        if (payment[key] !== undefined) payment[key] = Number(payment[key]);
       }
     }
   }
@@ -71,7 +67,6 @@ function coerceApiResponse(data: unknown): void {
   if (!data || typeof data !== "object") return;
   const response = data as Record<string, unknown>;
   const payload = response["data"];
-
   if (!payload) return;
 
   if (Array.isArray(payload)) {
@@ -95,11 +90,14 @@ function coerceApiResponse(data: unknown): void {
     }
   } else if (typeof payload === "object" && payload !== null) {
     const obj = payload as Record<string, unknown>;
-    if ("invoiceNumber" in obj) {
-      coerceInvoice(obj);
-    }
+    if ("invoiceNumber" in obj) coerceInvoice(obj);
     if ("recentInvoices" in obj && Array.isArray(obj["recentInvoices"])) {
       for (const inv of obj["recentInvoices"] as Record<string, unknown>[]) {
+        coerceInvoice(inv);
+      }
+    }
+    if ("invoices" in obj && Array.isArray(obj["invoices"])) {
+      for (const inv of obj["invoices"] as Record<string, unknown>[]) {
         coerceInvoice(inv);
       }
     }
@@ -142,10 +140,40 @@ export class ApiError extends Error {
 
 export const buildDefaultFollowUpSteps = (
   hasPhone: boolean,
+  invoiceType: InvoiceType = "STANDARD",
 ): FollowUpStepConfig[] => {
   const channels: ("EMAIL" | "WHATSAPP")[] = hasPhone
     ? ["EMAIL", "WHATSAPP"]
     : ["EMAIL"];
+
+  if (invoiceType === "DEPOSIT") {
+    return [
+      {
+        template: "PRE_DUE_REMINDER",
+        offsetDays: -1,
+        channels: [...channels],
+        enabled: true,
+      },
+      {
+        template: "FIRST_OVERDUE",
+        offsetDays: 2,
+        channels: [...channels],
+        enabled: true,
+      },
+      {
+        template: "SECOND_OVERDUE",
+        offsetDays: 5,
+        channels: [...channels],
+        enabled: true,
+      },
+      {
+        template: "FINAL_NOTICE",
+        offsetDays: 10,
+        channels: [...channels],
+        enabled: true,
+      },
+    ];
+  }
 
   return [
     {
@@ -173,6 +201,16 @@ export const buildDefaultFollowUpSteps = (
       enabled: true,
     },
   ];
+};
+
+export const calculateDueDate = (
+  invoiceType: InvoiceType,
+  paymentTermsDays: number = 14,
+): string => {
+  const today = new Date();
+  const days = invoiceType === "DEPOSIT" ? 5 : paymentTermsDays;
+  const date = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
+  return date.toISOString().split("T")[0] ?? "";
 };
 
 class ApiClient {
@@ -258,7 +296,6 @@ class ApiClient {
   private async refreshAccessToken(): Promise<string> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) throw new Error("No refresh token available");
-
     if (this.refreshPromise) return this.refreshPromise;
 
     this.refreshPromise = this.client
@@ -357,6 +394,42 @@ class ApiClient {
 
   async deleteClient(id: string): Promise<void> {
     await this.client.delete(`/api/clients/${id}`);
+  }
+
+  async getProjects(status?: string): Promise<Project[]> {
+    const params = status ? { status } : {};
+    const response = await this.client.get<ApiResponse<Project[]>>(
+      "/api/projects",
+      { params },
+    );
+    return response.data.data!;
+  }
+
+  async getProject(id: string): Promise<Project> {
+    const response = await this.client.get<ApiResponse<Project>>(
+      `/api/projects/${id}`,
+    );
+    return response.data.data!;
+  }
+
+  async createProject(data: CreateProjectInput): Promise<Project> {
+    const response = await this.client.post<ApiResponse<Project>>(
+      "/api/projects",
+      data,
+    );
+    return response.data.data!;
+  }
+
+  async updateProject(id: string, data: UpdateProjectInput): Promise<Project> {
+    const response = await this.client.patch<ApiResponse<Project>>(
+      `/api/projects/${id}`,
+      data,
+    );
+    return response.data.data!;
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    await this.client.delete(`/api/projects/${id}`);
   }
 
   async getInvoices(status?: string): Promise<Invoice[]> {
@@ -526,13 +599,6 @@ class ApiClient {
   async getFollowUpAnalytics(): Promise<FollowUpAnalytics> {
     const response = await this.client.get<ApiResponse<FollowUpAnalytics>>(
       "/api/analytics/followups",
-    );
-    return response.data.data!;
-  }
-
-  async getPaystackOnboardingUrl(): Promise<{ url: string }> {
-    const response = await this.client.get<ApiResponse<{ url: string }>>(
-      "/api/paystack/onboard",
     );
     return response.data.data!;
   }
