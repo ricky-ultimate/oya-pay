@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, buildDefaultFollowUpSteps } from "@/lib/api";
-import type { FollowUpStepConfig } from "@/types";
+import type { FollowUpStepConfig, InvoiceType } from "@/types";
 import { useToast } from "@/components/ui/toast";
 
 export type SendPhase = "configure" | "confirmed";
@@ -12,12 +12,14 @@ interface UseSendInvoiceOptions {
   invoiceId: string;
   hasPhone: boolean;
   dueDate: string;
+  invoiceType?: InvoiceType;
   onSuccess?: () => void;
 }
 
 export function useSendInvoice({
   invoiceId,
   hasPhone,
+  invoiceType = "STANDARD",
   onSuccess,
 }: UseSendInvoiceOptions) {
   const queryClient = useQueryClient();
@@ -29,7 +31,7 @@ export function useSendInvoice({
     hasPhone ? ["WHATSAPP", "EMAIL"] : ["EMAIL"],
   );
   const [followUpSteps, setFollowUpSteps] = useState<FollowUpStepConfig[]>(
-    buildDefaultFollowUpSteps(hasPhone),
+    buildDefaultFollowUpSteps(hasPhone, invoiceType),
   );
   const [confirmedSteps, setConfirmedSteps] = useState<FollowUpStepConfig[]>(
     [],
@@ -38,7 +40,7 @@ export function useSendInvoice({
 
   const openSendModal = (phone?: boolean) => {
     const usePhone = phone ?? hasPhone;
-    setFollowUpSteps(buildDefaultFollowUpSteps(usePhone));
+    setFollowUpSteps(buildDefaultFollowUpSteps(usePhone, invoiceType));
     setSendChannels(usePhone ? ["WHATSAPP", "EMAIL"] : ["EMAIL"]);
     setSendPhase("configure");
     setSendModal(true);
@@ -64,6 +66,7 @@ export function useSendInvoice({
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["followups", invoiceId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
       setConfirmedSteps(followUpSteps);
       setSendPhase("confirmed");
       onSuccess?.();
