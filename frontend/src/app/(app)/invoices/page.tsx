@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Invoice, InvoiceStatus } from "@/types";
@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UnsentInvoiceBanner } from "@/components/invoices/unsent-invoice-banner";
 import { formatNaira } from "@/utils/format";
 
 const STATUS_OPTIONS = [
@@ -23,6 +24,7 @@ const STATUS_OPTIONS = [
 ];
 
 function InvoicesPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState(searchParams.get("status") ?? "");
 
@@ -30,6 +32,15 @@ function InvoicesPageInner() {
     queryKey: ["invoices", status],
     queryFn: () => api.getInvoices(status || undefined),
   });
+
+  const handleSendClick = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    invoiceId: string,
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/invoices/${invoiceId}?action=send`);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,6 +62,8 @@ function InvoicesPageInner() {
           <Button size="md">New invoice</Button>
         </Link>
       </div>
+
+      <UnsentInvoiceBanner />
 
       <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-neutral-100 flex flex-nowrap gap-1 overflow-x-auto scrollbar-none">
@@ -99,6 +112,7 @@ function InvoicesPageInner() {
                 invoice.followUpSchedules?.filter((s) => s.status === "PENDING")
                   .length ?? 0;
               const isOverdue = invoice.status === "OVERDUE";
+              const isDraft = invoice.status === "DRAFT";
               return (
                 <Link
                   key={invoice.id}
@@ -123,18 +137,28 @@ function InvoicesPageInner() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 ml-4">
-                    <p
-                      className={`text-sm font-bold tabular-nums ${isOverdue ? "text-error-600" : "text-neutral-900"}`}
-                    >
-                      {formatNaira(Number(invoice.total))}
-                    </p>
-                    <p className="text-xs text-neutral-400 mt-0.5">
-                      {new Date(invoice.dueDate).toLocaleDateString("en-NG", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </p>
+                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                    {isDraft && (
+                      <button
+                        onClick={(e) => handleSendClick(e, invoice.id)}
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 border border-primary-200 transition-colors"
+                      >
+                        Send
+                      </button>
+                    )}
+                    <div className="text-right">
+                      <p
+                        className={`text-sm font-bold tabular-nums ${isOverdue ? "text-error-600" : "text-neutral-900"}`}
+                      >
+                        {formatNaira(Number(invoice.total))}
+                      </p>
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        {new Date(invoice.dueDate).toLocaleDateString("en-NG", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </p>
+                    </div>
                   </div>
                 </Link>
               );
