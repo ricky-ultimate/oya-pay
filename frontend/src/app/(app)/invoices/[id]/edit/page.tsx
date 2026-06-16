@@ -106,7 +106,6 @@ export default function EditInvoicePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoice", id] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast("Invoice updated", "success");
       router.push(`/invoices/${id}`);
     },
@@ -170,30 +169,6 @@ export default function EditInvoicePage() {
         <h1 className="text-2xl font-bold text-neutral-900">Edit Invoice</h1>
       </div>
 
-      {invoice.project && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-neutral-50 border border-neutral-200">
-          <svg
-            className="w-4 h-4 text-neutral-400 flex-shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"
-            />
-          </svg>
-          <p className="text-sm text-neutral-600">
-            Part of project:{" "}
-            <span className="font-semibold text-neutral-900">
-              {invoice.project.name}
-            </span>
-          </p>
-        </div>
-      )}
-
       <SectionCard>
         <SectionCardBody className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
@@ -215,7 +190,6 @@ export default function EditInvoicePage() {
             label="Client"
             value={form.clientId}
             onChange={update("clientId")}
-            disabled={!!invoice.projectId}
           >
             <option value="">Select a client</option>
             {clients.map((c) => (

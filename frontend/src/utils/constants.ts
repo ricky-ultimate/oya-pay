@@ -1,4 +1,4 @@
-import type { InvoiceType, ProjectStatus } from "@/types";
+import type { InvoiceType } from "@/types";
 
 export const TEMPLATE_LABELS: Record<string, string> = {
   INVOICE_SENT: "Invoice sent",
@@ -55,20 +55,64 @@ export const INVOICE_TYPE_ORDER: Record<InvoiceType, number> = {
   STANDARD: 3,
 };
 
-export const PROJECT_STATUS_CONFIG: Record<
-  ProjectStatus,
-  { label: string; className: string }
-> = {
-  ACTIVE: {
-    label: "Active",
-    className: "bg-success-50 text-success-700 border border-success-200",
+export interface FollowUpPreset {
+  id: string;
+  label: string;
+  description: string;
+  offsets: {
+    PRE_DUE_REMINDER: number;
+    FIRST_OVERDUE: number;
+    SECOND_OVERDUE: number;
+    FINAL_NOTICE: number;
+  };
+}
+
+export const FOLLOWUP_PRESETS: FollowUpPreset[] = [
+  {
+    id: "gentle",
+    label: "Gentle",
+    description: "2-3 spaced-out reminders over 26 days",
+    offsets: {
+      PRE_DUE_REMINDER: -5,
+      FIRST_OVERDUE: 3,
+      SECOND_OVERDUE: 10,
+      FINAL_NOTICE: 21,
+    },
   },
-  COMPLETED: {
-    label: "Completed",
-    className: "bg-primary-50 text-primary-700 border border-primary-200",
+  {
+    id: "standard",
+    label: "Standard",
+    description: "Balanced reminders over 17 days",
+    offsets: {
+      PRE_DUE_REMINDER: -3,
+      FIRST_OVERDUE: 1,
+      SECOND_OVERDUE: 7,
+      FINAL_NOTICE: 14,
+    },
   },
-  CANCELLED: {
-    label: "Cancelled",
-    className: "bg-neutral-100 text-neutral-500 border border-neutral-200",
+  {
+    id: "aggressive",
+    label: "Aggressive",
+    description: "Frequent reminders over 8 days for fast collection",
+    offsets: {
+      PRE_DUE_REMINDER: -1,
+      FIRST_OVERDUE: 1,
+      SECOND_OVERDUE: 3,
+      FINAL_NOTICE: 7,
+    },
   },
-};
+];
+
+export const FOLLOWUP_OFFSET_OPTIONS: number[] = [
+  -30, -21, -14, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3, 5, 7, 10, 14, 21, 30, 45,
+  60,
+];
+
+export function followUpOffsetLabel(days: number): string {
+  if (days === 0) return "On the due date";
+  if (days < 0) {
+    const n = Math.abs(days);
+    return `${n} day${n !== 1 ? "s" : ""} before due date`;
+  }
+  return `${days} day${days !== 1 ? "s" : ""} after due date`;
+}
