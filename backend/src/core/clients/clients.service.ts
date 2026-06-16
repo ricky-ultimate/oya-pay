@@ -70,9 +70,6 @@ export const getClientById = async (userId: string, clientId: string) =>
     include: {
       invoices: {
         orderBy: { createdAt: "asc" },
-        include: {
-          project: { select: { id: true, name: true } },
-        },
       },
     },
   });

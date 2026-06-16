@@ -3,7 +3,6 @@ import {
   PrismaClient,
   InvoiceStatus,
   InvoiceType,
-  ProjectStatus,
   FollowUpChannel,
   FollowUpTemplate,
   FollowUpStatus,
@@ -39,7 +38,6 @@ async function main() {
   await prisma.payment.deleteMany();
   await prisma.invoiceItem.deleteMany();
   await prisma.invoice.deleteMany();
-  await prisma.project.deleteMany();
   await prisma.client.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
@@ -66,24 +64,12 @@ async function main() {
     },
   });
 
-  const projectAmaka = await prisma.project.create({
-    data: {
-      userId: user.id,
-      clientId: clientOnTime.id,
-      name: "Brand & Web Design Package",
-      totalValue: 950000,
-      paymentTermsDays: 14,
-      status: ProjectStatus.COMPLETED,
-    },
-  });
-
   const inv1a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-001",
       title: "Brand Identity Design — Deposit",
       userId: user.id,
       clientId: clientOnTime.id,
-      projectId: projectAmaka.id,
       invoiceType: InvoiceType.DEPOSIT,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 60),
@@ -137,7 +123,6 @@ async function main() {
       title: "Website UI Design — Milestone",
       userId: user.id,
       clientId: clientOnTime.id,
-      projectId: projectAmaka.id,
       invoiceType: InvoiceType.MILESTONE,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 45),
@@ -184,7 +169,6 @@ async function main() {
       title: "Social Media Kit — Final Payment",
       userId: user.id,
       clientId: clientOnTime.id,
-      projectId: projectAmaka.id,
       invoiceType: InvoiceType.FINAL,
       status: InvoiceStatus.PENDING,
       issueDate: subtractDays(now, 7),
@@ -224,24 +208,12 @@ async function main() {
     },
   });
 
-  const projectEmeka = await prisma.project.create({
-    data: {
-      userId: user.id,
-      clientId: clientSometimesLate.id,
-      name: "Q3 Media Production",
-      totalValue: 650000,
-      paymentTermsDays: 14,
-      status: ProjectStatus.ACTIVE,
-    },
-  });
-
   const inv2a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-004",
       title: "Product Photography — Deposit",
       userId: user.id,
       clientId: clientSometimesLate.id,
-      projectId: projectEmeka.id,
       invoiceType: InvoiceType.DEPOSIT,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 90),
@@ -288,7 +260,6 @@ async function main() {
       title: "Video Editing — Q3 Reel",
       userId: user.id,
       clientId: clientSometimesLate.id,
-      projectId: projectEmeka.id,
       invoiceType: InvoiceType.MILESTONE,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 70),
@@ -335,7 +306,6 @@ async function main() {
       title: "Annual Report Design — Final",
       userId: user.id,
       clientId: clientSometimesLate.id,
-      projectId: projectEmeka.id,
       invoiceType: InvoiceType.FINAL,
       status: InvoiceStatus.PARTIAL,
       issueDate: subtractDays(now, 20),
@@ -434,24 +404,12 @@ async function main() {
     },
   });
 
-  const projectBiodun = await prisma.project.create({
-    data: {
-      userId: user.id,
-      clientId: clientLate.id,
-      name: "Corporate Media Coverage",
-      totalValue: 680000,
-      paymentTermsDays: 14,
-      status: ProjectStatus.ACTIVE,
-    },
-  });
-
   const inv3a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-007",
       title: "Corporate Event Coverage — Deposit",
       userId: user.id,
       clientId: clientLate.id,
-      projectId: projectBiodun.id,
       invoiceType: InvoiceType.DEPOSIT,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 120),
@@ -504,7 +462,6 @@ async function main() {
       title: "Office Interior Photography — Milestone",
       userId: user.id,
       clientId: clientLate.id,
-      projectId: projectBiodun.id,
       invoiceType: InvoiceType.MILESTONE,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 80),
@@ -642,24 +599,12 @@ async function main() {
     },
   });
 
-  const projectEze = await prisma.project.create({
-    data: {
-      userId: user.id,
-      clientId: clientGhost.id,
-      name: "Brand Consultation",
-      totalValue: 450000,
-      paymentTermsDays: 14,
-      status: ProjectStatus.ACTIVE,
-    },
-  });
-
   const inv4a = await prisma.invoice.create({
     data: {
       invoiceNumber: "INV-SEED-010",
       title: "Brand Consultation — Deposit",
       userId: user.id,
       clientId: clientGhost.id,
-      projectId: projectEze.id,
       invoiceType: InvoiceType.DEPOSIT,
       status: InvoiceStatus.PAID,
       issueDate: subtractDays(now, 150),
@@ -700,7 +645,6 @@ async function main() {
       title: "Brand Consultation — Phase 2 Milestone",
       userId: user.id,
       clientId: clientGhost.id,
-      projectId: projectEze.id,
       invoiceType: InvoiceType.MILESTONE,
       status: InvoiceStatus.OVERDUE,
       issueDate: subtractDays(now, 65),
@@ -759,7 +703,6 @@ async function main() {
       title: "Brand Guidelines Document — Final",
       userId: user.id,
       clientId: clientGhost.id,
-      projectId: projectEze.id,
       invoiceType: InvoiceType.FINAL,
       status: InvoiceStatus.DRAFT,
       issueDate: now,
@@ -923,27 +866,12 @@ async function main() {
   console.log(`Seeded client: ${clientGhost.name}`);
   console.log(`Seeded client: ${clientNew.name}`);
   console.log(`Seeded client: ${clientMixed.name}`);
-  console.log(`Seeded project: ${projectAmaka.name}`);
-  console.log(`Seeded project: ${projectEmeka.name}`);
-  console.log(`Seeded project: ${projectBiodun.name}`);
-  console.log(`Seeded project: ${projectEze.name}`);
 
   console.log("\n─────────────────────────────────────────────");
   console.log("Seed complete.");
   console.log("\nLogin credentials:");
   console.log("  Email:    tunde@oyapay.test");
   console.log("  Password: password123");
-  console.log("\nProjects seeded:");
-  console.log("  Brand & Web Design Package  — Amaka Obi       (COMPLETED)");
-  console.log(
-    "  Q3 Media Production         — Emeka Nwosu     (ACTIVE, partial final invoice)",
-  );
-  console.log(
-    "  Corporate Media Coverage    — Biodun Fasanya  (ACTIVE, standalone overdue invoice)",
-  );
-  console.log(
-    "  Brand Consultation          — Chukwuemeka Eze (ACTIVE, overdue milestone, draft final)",
-  );
   console.log("─────────────────────────────────────────────\n");
 }
 

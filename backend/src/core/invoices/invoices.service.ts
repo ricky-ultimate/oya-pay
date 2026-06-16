@@ -39,16 +39,6 @@ export const createInvoice = async (
   });
   if (!client) throw new Error("Client not found");
 
-  if (input.projectId) {
-    const project = await prisma.project.findFirst({
-      where: { id: input.projectId, userId },
-    });
-    if (!project) throw new Error("Project not found");
-    if (project.clientId !== input.clientId) {
-      throw new Error("Client does not match the selected project");
-    }
-  }
-
   const subtotal = input.items.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice,
     0,
@@ -61,7 +51,6 @@ export const createInvoice = async (
       title: input.title,
       userId,
       clientId: input.clientId,
-      projectId: input.projectId ?? null,
       invoiceType: (input.invoiceType ?? "STANDARD") as InvoiceType,
       dueDate: new Date(input.dueDate),
       currency: input.currency,
@@ -81,7 +70,6 @@ export const createInvoice = async (
     include: {
       items: true,
       client: true,
-      project: { select: { id: true, name: true } },
     },
   });
 };
@@ -94,7 +82,6 @@ export const getInvoices = async (userId: string, status?: string) =>
     },
     include: {
       client: { select: { id: true, name: true, email: true } },
-      project: { select: { id: true, name: true } },
       _count: { select: { payments: true } },
       followUpSchedules: {
         where: { status: FollowUpStatus.PENDING },
@@ -111,7 +98,6 @@ export const getInvoiceById = async (userId: string, invoiceId: string) => {
       items: true,
       client: true,
       user: true,
-      project: { select: { id: true, name: true, paymentTermsDays: true } },
       payments: { orderBy: { paidAt: "desc" } },
       followUpLogs: { orderBy: { sentAt: "asc" } },
       followUpSchedules: {
@@ -234,7 +220,6 @@ export const updateInvoice = async (
       include: {
         items: true,
         client: true,
-        project: { select: { id: true, name: true } },
       },
     });
   }
@@ -245,7 +230,6 @@ export const updateInvoice = async (
     include: {
       items: true,
       client: true,
-      project: { select: { id: true, name: true } },
     },
   });
 };
