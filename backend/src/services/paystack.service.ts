@@ -17,6 +17,7 @@ export interface InitializePaymentOptions {
   reference: string;
   metadata?: Record<string, unknown>;
   callbackUrl?: string;
+  redirectUrl?: string;
   subaccountCode?: string | null;
 }
 
@@ -37,6 +38,10 @@ export const initializePayment = async (
       metadata: options.metadata,
       callback_url: options.callbackUrl,
     };
+
+    if (options.redirectUrl) {
+      body["redirect_url"] = options.redirectUrl;
+    }
 
     if (options.subaccountCode) {
       body["split"] = {
@@ -74,6 +79,50 @@ export const verifyPayment = async (reference: string): Promise<boolean> => {
   } catch (error) {
     logger("Paystack verify error:", error);
     return false;
+  }
+};
+
+export interface PaymentVerificationDetail {
+  status: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  gatewayResponse: string;
+  paidAt: string | null;
+  metadata: Record<string, unknown>;
+  customer: {
+    email: string;
+    name: string | null;
+  };
+}
+
+export const getPaymentVerificationDetail = async (
+  reference: string,
+): Promise<PaymentVerificationDetail | null> => {
+  try {
+    const response = await paystackClient.get(
+      `/transaction/verify/${reference}`,
+    );
+    const data = response.data.data as Record<string, unknown>;
+    const customer = data["customer"] as Record<string, unknown>;
+    const metadata = (data["metadata"] as Record<string, unknown>) ?? {};
+
+    return {
+      status: data["status"] as string,
+      amount: (data["amount"] as number) / 100,
+      currency: data["currency"] as string,
+      reference: data["reference"] as string,
+      gatewayResponse: data["gateway_response"] as string,
+      paidAt: (data["paid_at"] as string) ?? null,
+      metadata,
+      customer: {
+        email: customer["email"] as string,
+        name: (customer["name"] as string) ?? null,
+      },
+    };
+  } catch (error) {
+    logger("Paystack verification detail error:", error);
+    return null;
   }
 };
 
