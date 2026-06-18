@@ -307,6 +307,7 @@ export const sendInvoice = async (
       reference: `OYAPAY-${invoice.invoiceNumber}-${Date.now()}`,
       metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
       callbackUrl: `${ENV.APP_URL}/api/webhooks/paystack`,
+      redirectUrl: `${ENV.CLIENT_URL}/payment/success`,
       subaccountCode: invoice.user.paystackSubaccountCode,
     });
 
@@ -458,6 +459,7 @@ export const getOrRegeneratePaymentLink = async (
     reference: `OYAPAY-${invoice.invoiceNumber}-${Date.now()}`,
     metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
     callbackUrl: `${ENV.APP_URL}/api/webhooks/paystack`,
+    redirectUrl: `${ENV.CLIENT_URL}/payment/success`,
     subaccountCode: invoice.user.paystackSubaccountCode,
   });
 
