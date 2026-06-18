@@ -380,3 +380,33 @@ export interface VerifyEmailInput {
 export interface ResendCodeResponse {
   sent: boolean;
 }
+
+export interface TemplateItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface InvoiceTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  title: string;
+  items: TemplateItem[];
+  tax: string | number;
+  notes: string | null;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTemplateInput {
+  name: string;
+  title: string;
+  items: TemplateItem[];
+  tax?: number;
+  notes?: string;
+  currency?: string;
+}
+
+export type UpdateTemplateInput = Partial<CreateTemplateInput>;

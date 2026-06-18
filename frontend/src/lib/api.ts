@@ -10,6 +10,7 @@ import type {
   ClientStats,
   CreateClientInput,
   CreateInvoiceInput,
+  CreateTemplateInput,
   DashboardStats,
   FollowUpActivity,
   FollowUpAnalytics,
@@ -17,6 +18,7 @@ import type {
   FollowUpStepConfig,
   Invoice,
   InvoiceStatus,
+  InvoiceTemplate,
   InvoiceType,
   LoginInput,
   LogPaymentInput,
@@ -28,6 +30,7 @@ import type {
   ResendCodeResponse,
   UpdateInvoiceInput,
   UpdateProfileInput,
+  UpdateTemplateInput,
   User,
   VerifyEmailInput,
   WhatsAppStatus,
@@ -632,6 +635,42 @@ class ApiClient {
       { email },
     );
     return response.data.data!;
+  }
+
+  async listTemplates(): Promise<InvoiceTemplate[]> {
+    const response =
+      await this.client.get<ApiResponse<InvoiceTemplate[]>>("/api/templates");
+    return response.data.data!;
+  }
+
+  async getTemplate(id: string): Promise<InvoiceTemplate> {
+    const response = await this.client.get<ApiResponse<InvoiceTemplate>>(
+      `/api/templates/${id}`,
+    );
+    return response.data.data!;
+  }
+
+  async createTemplate(data: CreateTemplateInput): Promise<InvoiceTemplate> {
+    const response = await this.client.post<ApiResponse<InvoiceTemplate>>(
+      "/api/templates",
+      data,
+    );
+    return response.data.data!;
+  }
+
+  async updateTemplate(
+    id: string,
+    data: UpdateTemplateInput,
+  ): Promise<InvoiceTemplate> {
+    const response = await this.client.put<ApiResponse<InvoiceTemplate>>(
+      `/api/templates/${id}`,
+      data,
+    );
+    return response.data.data!;
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    await this.client.delete(`/api/templates/${id}`);
   }
 }
 
