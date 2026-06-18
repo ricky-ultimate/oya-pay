@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, calculateDueDate } from "@/lib/api";
@@ -9,7 +9,6 @@ import type {
   ClientStats,
   CreateInvoiceInput,
   InvoiceType,
-  Project,
 } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -55,13 +54,10 @@ function CreateInvoicePageInner() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const initialProjectId = searchParams.get("projectId") ?? "";
   const initialClientId = searchParams.get("clientId") ?? "";
 
   const [title, setTitle] = useState("");
-  const [projectId, setProjectId] = useState(initialProjectId);
   const [clientId, setClientId] = useState(initialClientId);
-  const [clientLocked, setClientLocked] = useState(false);
   const [invoiceType, setInvoiceType] = useState<InvoiceType>("STANDARD");
   const [dueDate, setDueDate] = useState("");
   const [tax, setTax] = useState("0");
@@ -72,61 +68,22 @@ function CreateInvoicePageInner() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [projectsHydrated, setProjectsHydrated] = useState(false);
 
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["clients"],
     queryFn: () => api.getClients(),
   });
 
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["projects"],
-    queryFn: () => api.getProjects(),
-  });
-
-  useEffect(() => {
-    if (projects.length === 0 || projectsHydrated) return;
-    setProjectsHydrated(true);
-    if (!initialProjectId) return;
-    const project = projects.find((p) => p.id === initialProjectId);
-    if (!project) return;
-    Promise.resolve().then(() => {
-      setClientId(project.clientId);
-      setClientLocked(true);
-      setDueDate(calculateDueDate("STANDARD", project.paymentTermsDays));
-    });
-  }, [projects, initialProjectId, projectsHydrated]);
-
-  const handleProjectChange = (newProjectId: string) => {
-    setProjectId(newProjectId);
-    setBannerDismissed(false);
-    if (newProjectId) {
-      const project = projects.find((p) => p.id === newProjectId);
-      if (project) {
-        setClientId(project.clientId);
-        setClientLocked(true);
-        setDueDate(calculateDueDate(invoiceType, project.paymentTermsDays));
-      }
-    } else {
-      setClientLocked(false);
-    }
-  };
-
   const handleInvoiceTypeChange = (newType: InvoiceType) => {
     setInvoiceType(newType);
-    const selectedProject = projectId
-      ? projects.find((p) => p.id === projectId)
-      : null;
-    setDueDate(
-      calculateDueDate(newType, selectedProject?.paymentTermsDays ?? 14),
-    );
+    setDueDate(calculateDueDate(newType));
   };
 
   const handleClientChange = (newClientId: string) => {
     setClientId(newClientId);
     setBannerDismissed(false);
     if (!dueDate) {
-      setDueDate(calculateDueDate(invoiceType, 14));
+      setDueDate(calculateDueDate(invoiceType));
     }
   };
 
@@ -174,7 +131,6 @@ function CreateInvoicePageInner() {
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast("Invoice saved as draft", "success");
       router.push(`/invoices/${invoice.id}`);
     },
@@ -186,7 +142,6 @@ function CreateInvoicePageInner() {
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
       setPendingInvoiceId(invoice.id);
       setSendModal(true);
     },
@@ -207,7 +162,6 @@ function CreateInvoicePageInner() {
   const buildPayload = (): CreateInvoiceInput => ({
     title,
     clientId,
-    projectId: projectId || undefined,
     invoiceType,
     dueDate: new Date(dueDate).toISOString(),
     tax: taxPercent > 0 ? taxAmount : 0,
@@ -243,10 +197,6 @@ function CreateInvoicePageInner() {
 
   const minDate = new Date().toISOString().split("T")[0] as string;
 
-  const clientsForProject = projectId
-    ? clients.filter((c) => c.id === clientId)
-    : clients;
-
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -267,18 +217,6 @@ function CreateInvoicePageInner() {
             error={errors["title"]}
           />
           <Select
-            label="Project (optional)"
-            value={projectId}
-            onChange={(e) => handleProjectChange(e.target.value)}
-          >
-            <option value="">No project — standalone invoice</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.client.name})
-              </option>
-            ))}
-          </Select>
-          <Select
             label="Invoice Type"
             value={invoiceType}
             onChange={(e) =>
@@ -296,28 +234,15 @@ function CreateInvoicePageInner() {
             value={clientId}
             onChange={(e) => handleClientChange(e.target.value)}
             error={errors["clientId"]}
-            disabled={clientLocked}
           >
             <option value="">Select a client</option>
-            {(clientLocked ? clients : clientsForProject).map((c) => (
+            {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
                 {c.phone ? " (WhatsApp)" : ""}
               </option>
             ))}
           </Select>
-          {clientLocked && (
-            <p className="text-xs text-neutral-400 -mt-2">
-              Client is set by the selected project.{" "}
-              <button
-                type="button"
-                className="text-primary-600 hover:underline"
-                onClick={() => handleProjectChange("")}
-              >
-                Clear project
-              </button>
-            </p>
-          )}
           <Input
             label="Due Date"
             type="date"

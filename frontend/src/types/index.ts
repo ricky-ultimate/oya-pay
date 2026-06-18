@@ -40,31 +40,6 @@ export type ReliabilityScore =
 
 export type InvoiceType = "STANDARD" | "DEPOSIT" | "MILESTONE" | "FINAL";
 
-export type ProjectStatus = "ACTIVE" | "COMPLETED" | "CANCELLED";
-
-export interface Project {
-  id: string;
-  userId: string;
-  clientId: string;
-  name: string;
-  totalValue: string | number | null;
-  paymentTermsDays: number;
-  status: ProjectStatus;
-  createdAt: string;
-  updatedAt: string;
-  client: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string | null;
-  };
-  invoiceCount?: number;
-  totalInvoiced?: number;
-  totalCollected?: number;
-  outstanding?: number;
-  invoices?: Invoice[];
-}
-
 export interface InvoiceItem {
   id: string;
   invoiceId: string;
@@ -167,10 +142,8 @@ export interface Invoice {
   updatedAt: string;
   clientId: string;
   userId: string;
-  projectId: string | null;
   client?: Client;
   user?: User;
-  project?: { id: string; name: string; paymentTermsDays?: number } | null;
   items?: InvoiceItem[];
   payments?: Payment[];
   followUpLogs?: FollowUpLog[];
@@ -235,20 +208,6 @@ export interface CreateClientInput {
   address?: string;
 }
 
-export interface CreateProjectInput {
-  clientId: string;
-  name: string;
-  totalValue?: number;
-  paymentTermsDays?: number;
-}
-
-export interface UpdateProjectInput {
-  name?: string;
-  totalValue?: number;
-  paymentTermsDays?: number;
-  status?: ProjectStatus;
-}
-
 export interface CreateInvoiceItemInput {
   description: string;
   quantity: number;
@@ -258,7 +217,6 @@ export interface CreateInvoiceItemInput {
 export interface CreateInvoiceInput {
   title: string;
   clientId: string;
-  projectId?: string;
   invoiceType?: InvoiceType;
   dueDate: string;
   currency?: string;

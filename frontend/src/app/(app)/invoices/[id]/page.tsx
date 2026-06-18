@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -28,6 +28,7 @@ import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
 import { EscalateModal } from "@/components/invoices/escalate-modal";
 import { EscalateButton } from "@/components/invoices/escalate-button";
 import { InvoiceTimeline } from "@/components/invoices/invoice-timeline";
+import { MessagePreviewToggle } from "@/components/invoices/message-preview-toggle";
 import { useToast } from "@/components/ui/toast";
 import { useSendInvoice } from "@/hooks/use-send-invoice";
 import { formatNaira, formatDate } from "@/utils/format";
@@ -68,9 +69,10 @@ function RecoveryBanner({
   );
 }
 
-export default function InvoiceDetailPage() {
+function InvoiceDetailPageInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -144,6 +146,14 @@ export default function InvoiceDetailPage() {
     }
     prevStatusRef.current = current;
   }, [invoice, toast]);
+
+  useEffect(() => {
+    if (!invoice) return;
+    if (searchParams.get("action") !== "send") return;
+    if (["PAID", "CANCELLED"].includes(invoice.status)) return;
+    openSendModal(!!invoice.client?.phone);
+    router.replace(`/invoices/${id}`);
+  }, [invoice, searchParams, id, router]);
 
   const pendingCount =
     invoice?.followUpSchedules?.filter((s) => s.status === "PENDING").length ??
@@ -296,6 +306,22 @@ export default function InvoiceDetailPage() {
         )}
       </div>
 
+      {invoice.status === "DRAFT" && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-primary-50 border border-primary-200">
+          <div>
+            <p className="text-sm font-semibold text-primary-800">
+              This invoice has not been sent yet
+            </p>
+            <p className="text-xs text-primary-600 mt-0.5">
+              Send it now to start collecting payment and activate reminders.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => openSendModal(hasPhone)}>
+            Send now
+          </Button>
+        </div>
+      )}
+
       {showRecoveryBanner && invoice.followUpAttribution && (
         <RecoveryBanner
           recoveredAmount={invoice.followUpAttribution.recoveredAmount}
@@ -348,6 +374,16 @@ export default function InvoiceDetailPage() {
           sentAt={invoice.sentAt}
         />
       )}
+
+      <MessagePreviewToggle
+        invoiceId={id}
+        template="INVOICE_SENT"
+        hasPhone={hasPhone}
+        senderName={
+          invoice.user?.businessName ?? invoice.user?.name ?? "OyaPay"
+        }
+        alreadySent={!!invoice.sentAt}
+      />
 
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
         <table className="w-full text-sm">
@@ -723,5 +759,13 @@ export default function InvoiceDetailPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function InvoiceDetailPage() {
+  return (
+    <Suspense>
+      <InvoiceDetailPageInner />
+    </Suspense>
   );
 }

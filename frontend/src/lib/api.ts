@@ -10,7 +10,6 @@ import type {
   ClientStats,
   CreateClientInput,
   CreateInvoiceInput,
-  CreateProjectInput,
   DashboardStats,
   FollowUpActivity,
   FollowUpAnalytics,
@@ -23,13 +22,11 @@ import type {
   LogPaymentInput,
   Payment,
   PaymentLinkResponse,
-  Project,
   RegisterInput,
   RegisterPendingResponse,
   ResendCodeResponse,
   UpdateInvoiceInput,
   UpdateProfileInput,
-  UpdateProjectInput,
   User,
   VerifyEmailInput,
   WhatsAppStatus,
@@ -203,12 +200,9 @@ export const buildDefaultFollowUpSteps = (
   ];
 };
 
-export const calculateDueDate = (
-  invoiceType: InvoiceType,
-  paymentTermsDays: number = 14,
-): string => {
+export const calculateDueDate = (invoiceType: InvoiceType): string => {
   const today = new Date();
-  const days = invoiceType === "DEPOSIT" ? 5 : paymentTermsDays;
+  const days = invoiceType === "DEPOSIT" ? 5 : 14;
   const date = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
   return date.toISOString().split("T")[0] ?? "";
 };
@@ -394,42 +388,6 @@ class ApiClient {
 
   async deleteClient(id: string): Promise<void> {
     await this.client.delete(`/api/clients/${id}`);
-  }
-
-  async getProjects(status?: string): Promise<Project[]> {
-    const params = status ? { status } : {};
-    const response = await this.client.get<ApiResponse<Project[]>>(
-      "/api/projects",
-      { params },
-    );
-    return response.data.data!;
-  }
-
-  async getProject(id: string): Promise<Project> {
-    const response = await this.client.get<ApiResponse<Project>>(
-      `/api/projects/${id}`,
-    );
-    return response.data.data!;
-  }
-
-  async createProject(data: CreateProjectInput): Promise<Project> {
-    const response = await this.client.post<ApiResponse<Project>>(
-      "/api/projects",
-      data,
-    );
-    return response.data.data!;
-  }
-
-  async updateProject(id: string, data: UpdateProjectInput): Promise<Project> {
-    const response = await this.client.patch<ApiResponse<Project>>(
-      `/api/projects/${id}`,
-      data,
-    );
-    return response.data.data!;
-  }
-
-  async deleteProject(id: string): Promise<void> {
-    await this.client.delete(`/api/projects/${id}`);
   }
 
   async getInvoices(status?: string): Promise<Invoice[]> {

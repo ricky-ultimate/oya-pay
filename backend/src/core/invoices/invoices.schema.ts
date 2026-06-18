@@ -21,7 +21,6 @@ const followUpStepSchema = z.object({
 export const createInvoiceSchema = z.object({
   title: z.string().min(1),
   clientId: z.string().min(1),
-  projectId: z.string().optional(),
   invoiceType: z
     .enum(["STANDARD", "DEPOSIT", "MILESTONE", "FINAL"])
     .default("STANDARD"),
@@ -64,6 +63,7 @@ export const triggerFollowUpSchema = z.object({
 
 export const escalateFollowUpSchema = z.object({
   template: z.enum([
+    "INVOICE_SENT",
     "PRE_DUE_REMINDER",
     "FIRST_OVERDUE",
     "SECOND_OVERDUE",
