@@ -22,6 +22,7 @@ import type {
   LogPaymentInput,
   Payment,
   PaymentLinkResponse,
+  PaymentVerificationResult,
   RegisterInput,
   RegisterPendingResponse,
   ResendCodeResponse,
@@ -464,6 +465,15 @@ class ApiClient {
       `/api/invoices/${id}/payment-link`,
       { params },
     );
+    return response.data.data!;
+  }
+
+  async verifyPaymentByReference(
+    reference: string,
+  ): Promise<PaymentVerificationResult> {
+    const response = await this.client.get<
+      ApiResponse<PaymentVerificationResult>
+    >(`/api/paystack/verify/${encodeURIComponent(reference)}`);
     return response.data.data!;
   }
 
