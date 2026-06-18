@@ -60,6 +60,27 @@ export interface Payment {
   createdAt: string;
 }
 
+export interface PaymentVerificationResult {
+  status: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  gatewayResponse: string;
+  paidAt: string | null;
+  customer: {
+    email: string;
+    name: string | null;
+  };
+  invoice: {
+    invoiceNumber: string;
+    title: string;
+    clientName: string;
+    freelancerName: string;
+    businessName: string | null;
+    dueDate: string;
+  } | null;
+}
+
 export interface FollowUpLog {
   id: string;
   channel: string;
