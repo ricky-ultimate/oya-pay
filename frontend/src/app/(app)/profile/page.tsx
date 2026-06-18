@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { Textarea } from "@/components/ui/textarea";
 
 interface BankOption {
   name: string;
@@ -372,6 +373,10 @@ interface ProfileForm {
   businessName: string;
   phone: string;
   logoUrl: string;
+  bankName: string;
+  bankAccount: string;
+  bankAccountName: string;
+  invoiceTerms: string;
 }
 
 function ProfileInner() {
@@ -385,6 +390,10 @@ function ProfileInner() {
     businessName: "",
     phone: "",
     logoUrl: "",
+    bankName: "",
+    bankAccount: "",
+    bankAccountName: "",
+    invoiceTerms: "",
   });
   const [formHydrated, setFormHydrated] = useState(false);
 
@@ -412,6 +421,10 @@ function ProfileInner() {
       businessName: user.businessName ?? "",
       phone: user.phone ?? "",
       logoUrl: user.logoUrl ?? "",
+      bankName: user.bankName ?? "",
+      bankAccount: user.bankAccount ?? "",
+      bankAccountName: user.bankAccountName ?? "",
+      invoiceTerms: user.invoiceTerms ?? "",
     };
     Promise.resolve().then(() => {
       setForm(next);
@@ -435,6 +448,10 @@ function ProfileInner() {
       businessName: form.businessName || undefined,
       phone: form.phone || undefined,
       logoUrl: form.logoUrl || undefined,
+      bankName: form.bankName || undefined,
+      bankAccount: form.bankAccount || undefined,
+      bankAccountName: form.bankAccountName || undefined,
+      invoiceTerms: form.invoiceTerms || undefined,
     });
   };
 
@@ -511,6 +528,55 @@ function ProfileInner() {
           onChange={update("logoUrl")}
           placeholder="https://example.com/logo.png"
         />
+
+        <div className="border-t border-neutral-100 pt-4 flex flex-col gap-4">
+          <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+            Bank Details for Manual Payments
+          </h3>
+          <p className="text-xs text-neutral-400 -mt-2 leading-relaxed">
+            These details will appear on every invoice so clients can pay via
+            bank transfer.
+          </p>
+          <Input
+            label="Bank Name"
+            value={form.bankName}
+            onChange={update("bankName")}
+            placeholder="First Bank of Nigeria"
+          />
+          <Input
+            label="Account Number"
+            value={form.bankAccount}
+            onChange={update("bankAccount")}
+            placeholder="0123456789"
+            maxLength={10}
+          />
+          <Input
+            label="Account Holder Name"
+            value={form.bankAccountName}
+            onChange={update("bankAccountName")}
+            placeholder="Chidi Okeke"
+          />
+        </div>
+
+        <div className="border-t border-neutral-100 pt-4 flex flex-col gap-2">
+          <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+            Invoice Terms
+          </h3>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            Printed at the bottom of every invoice. Leave blank to use the
+            default terms.
+          </p>
+          <Textarea
+            label=""
+            value={form.invoiceTerms}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, invoiceTerms: e.target.value }))
+            }
+            placeholder="Payment is due within 14 days. Late payment may incur additional charges."
+            rows={3}
+          />
+        </div>
+
         <Button
           type="submit"
           loading={updateMutation.isPending}
