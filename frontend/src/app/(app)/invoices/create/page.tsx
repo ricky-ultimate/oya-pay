@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, calculateDueDate } from "@/lib/api";
@@ -8,7 +8,9 @@ import type {
   Client,
   ClientStats,
   CreateInvoiceInput,
+  InvoiceTemplate,
   InvoiceType,
+  TemplateItem,
 } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -26,6 +28,7 @@ import { FollowUpTimeline } from "@/components/invoices/follow-up-timeline";
 import { LatePayerBanner } from "@/components/invoices/late-payer-banner";
 import { ChannelSelector } from "@/components/invoices/channel-selector";
 import { SendConfirmedView } from "@/components/invoices/send-confirmed-view";
+import { TemplateSelector } from "@/components/templates/template-selector";
 import { useToast } from "@/components/ui/toast";
 import { useSendInvoice } from "@/hooks/use-send-invoice";
 
@@ -55,6 +58,7 @@ function CreateInvoicePageInner() {
   const { toast } = useToast();
 
   const initialClientId = searchParams.get("clientId") ?? "";
+  const initialTemplateId = searchParams.get("templateId") ?? "";
 
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState(initialClientId);
@@ -68,11 +72,42 @@ function CreateInvoicePageInner() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
+  const [appliedTemplateName, setAppliedTemplateName] = useState<string | null>(
+    null,
+  );
 
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["clients"],
     queryFn: () => api.getClients(),
   });
+
+  const { data: preloadedTemplate } = useQuery<InvoiceTemplate>({
+    queryKey: ["template", initialTemplateId],
+    queryFn: () => api.getTemplate(initialTemplateId),
+    enabled: !!initialTemplateId,
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    if (!preloadedTemplate) return;
+    applyTemplate(preloadedTemplate);
+  }, [preloadedTemplate]);
+
+  const applyTemplate = (template: InvoiceTemplate) => {
+    setTitle(template.title);
+    setItems(
+      (template.items as TemplateItem[]).map((item) => ({
+        description: item.description,
+        quantity: String(item.quantity),
+        unitPrice: String(item.unitPrice),
+      })),
+    );
+    setTax(String(Number(template.tax)));
+    setNotes(template.notes ?? "");
+    setAppliedTemplateName(template.name);
+    setTemplateSectionOpen(false);
+  };
 
   const handleInvoiceTypeChange = (newType: InvoiceType) => {
     setInvoiceType(newType);
@@ -203,6 +238,46 @@ function CreateInvoicePageInner() {
         <BackButton />
         <h1 className="text-2xl font-bold text-neutral-900">New Invoice</h1>
       </div>
+
+      <SectionCard>
+        <SectionCardBody className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
+              Start from a template
+            </p>
+            <button
+              type="button"
+              onClick={() => setTemplateSectionOpen((v) => !v)}
+              className="text-xs font-semibold text-primary-600 hover:text-primary-700 transition-colors"
+            >
+              {templateSectionOpen ? "Hide" : "Browse templates"}
+            </button>
+          </div>
+
+          {appliedTemplateName && !templateSectionOpen && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-primary-50 border border-primary-200">
+              <p className="text-sm font-medium text-primary-800">
+                Using template: {appliedTemplateName}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setAppliedTemplateName(null);
+                  setTitle("");
+                  setItems([{ description: "", quantity: "1", unitPrice: "" }]);
+                  setTax("0");
+                  setNotes("");
+                }}
+                className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          {templateSectionOpen && <TemplateSelector onSelect={applyTemplate} />}
+        </SectionCardBody>
+      </SectionCard>
 
       <SectionCard>
         <SectionCardBody className="flex flex-col gap-4">
