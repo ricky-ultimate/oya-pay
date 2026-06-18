@@ -33,6 +33,7 @@ import { useToast } from "@/components/ui/toast";
 import { useSendInvoice } from "@/hooks/use-send-invoice";
 import { formatNaira, formatDate } from "@/utils/format";
 import { TEMPLATE_LABELS } from "@/utils/constants";
+import { SaveTemplateButton } from "@/components/templates/save-template-button";
 
 function RecoveryBanner({
   recoveredAmount,
@@ -592,6 +593,19 @@ function InvoiceDetailPageInner() {
         <Button variant="ghost" onClick={downloadPDF} size="md">
           Download PDF
         </Button>
+        {invoice.items && invoice.items.length > 0 && (
+          <SaveTemplateButton
+            title={invoice.title}
+            items={(invoice.items ?? []).map((item) => ({
+              description: item.description,
+              quantity: Number(item.quantity),
+              unitPrice: Number(item.unitPrice),
+            }))}
+            tax={Number(invoice.tax)}
+            notes={invoice.notes}
+            currency={invoice.currency}
+          />
+        )}
         <Link href={`/invoices/${id}/followups`}>
           <Button variant="ghost" size="md">
             Follow-ups
