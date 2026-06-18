@@ -16,6 +16,10 @@ model User {
     businessName             String?
     phone                    String
     logoUrl                  String?
+    bankName                 String?
+    bankAccount              String?
+    bankAccountName          String?
+    invoiceTerms             String?
     paystackSubaccountCode   String?
     paystackSubaccountActive Boolean           @default(false)
     createdAt                DateTime          @default(now())
