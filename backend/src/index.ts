@@ -20,6 +20,7 @@ import analyticsRoutes from "./core/analytics/analytics.routes";
 import trackingRoutes from "./core/tracking/tracking.routes";
 import paystackRoutes from "./core/paystack/paystack.routes";
 import whatsappRoutes from "./core/whatsapp/whatsapp.routes";
+import templateRoutes from "./core/templates/templates.routes";
 
 const requiredEnv: (keyof typeof ENV)[] = [
   "JWT_ACCESS_SECRET",
@@ -78,6 +79,7 @@ app.use("/api/webhooks", webhookRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/track", trackingRoutes);
+app.use("/api/templates", templateRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
