@@ -7,6 +7,7 @@ import {
   createSubaccount,
   listBanks,
   resolveAccountNumber,
+  getPaymentVerificationDetail,
 } from "../../services/paystack.service";
 import logger from "../../utils/logger.utils";
 import { z } from "zod";
@@ -132,5 +133,71 @@ export const verifySubaccount = async (
   } catch (error) {
     logger("Verify subaccount error:", error);
     sendError(res, 500, "Failed to verify subaccount");
+  }
+};
+
+export const verifyPaymentByReference = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { reference } = req.params as { reference: string };
+
+    if (!reference || reference.trim().length === 0) {
+      sendError(res, 400, "Payment reference is required");
+      return;
+    }
+
+    const detail = await getPaymentVerificationDetail(reference);
+
+    if (!detail) {
+      sendError(res, 404, "Payment not found");
+      return;
+    }
+
+    const invoiceId = detail.metadata["invoiceId"] as string | undefined;
+    let invoiceData: {
+      invoiceNumber: string;
+      title: string;
+      clientName: string;
+      freelancerName: string;
+      businessName: string | null;
+      dueDate: string;
+    } | null = null;
+
+    if (invoiceId) {
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: invoiceId },
+        include: {
+          client: { select: { name: true } },
+          user: { select: { name: true, businessName: true } },
+        },
+      });
+
+      if (invoice) {
+        invoiceData = {
+          invoiceNumber: invoice.invoiceNumber,
+          title: invoice.title,
+          clientName: invoice.client.name,
+          freelancerName: invoice.user.name,
+          businessName: invoice.user.businessName,
+          dueDate: invoice.dueDate.toISOString(),
+        };
+      }
+    }
+
+    sendSuccess(res, 200, "Payment verified", {
+      status: detail.status,
+      amount: detail.amount,
+      currency: detail.currency,
+      reference: detail.reference,
+      gatewayResponse: detail.gatewayResponse,
+      paidAt: detail.paidAt,
+      customer: detail.customer,
+      invoice: invoiceData,
+    });
+  } catch (error) {
+    logger("Verify payment by reference error:", error);
+    sendError(res, 500, "Failed to verify payment");
   }
 };
