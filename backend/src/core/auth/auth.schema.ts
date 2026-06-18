@@ -22,6 +22,10 @@ export const updateProfileSchema = z.object({
   logoUrl: z.string().url().optional(),
   paystackSubaccountCode: z.string().optional(),
   paystackSubaccountActive: z.boolean().optional(),
+  bankName: z.string().optional(),
+  bankAccount: z.string().optional(),
+  bankAccountName: z.string().optional(),
+  invoiceTerms: z.string().max(1000).optional(),
 });
 
 export const verifyEmailSchema = z.object({

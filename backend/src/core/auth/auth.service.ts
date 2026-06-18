@@ -23,6 +23,10 @@ const USER_SELECT = {
   createdAt: true,
   paystackSubaccountCode: true,
   paystackSubaccountActive: true,
+  bankName: true,
+  bankAccount: true,
+  bankAccountName: true,
+  invoiceTerms: true,
 } as const;
 
 const CODE_EXPIRY_MS = 10 * 60 * 1000;
@@ -277,6 +281,16 @@ export const updateProfile = async (
       ...(input.paystackSubaccountCode !== undefined && {
         paystackSubaccountCode: input.paystackSubaccountCode ?? null,
         paystackSubaccountActive: !!input.paystackSubaccountCode,
+      }),
+      ...(input.bankName !== undefined && { bankName: input.bankName ?? null }),
+      ...(input.bankAccount !== undefined && {
+        bankAccount: input.bankAccount ?? null,
+      }),
+      ...(input.bankAccountName !== undefined && {
+        bankAccountName: input.bankAccountName ?? null,
+      }),
+      ...(input.invoiceTerms !== undefined && {
+        invoiceTerms: input.invoiceTerms ?? null,
       }),
     },
     select: USER_SELECT,

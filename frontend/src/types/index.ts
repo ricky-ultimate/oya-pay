@@ -410,3 +410,31 @@ export interface CreateTemplateInput {
 }
 
 export type UpdateTemplateInput = Partial<CreateTemplateInput>;
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  businessName: string | null;
+  phone: string | null;
+  logoUrl: string | null;
+  createdAt: string;
+  paystackSubaccountCode: string | null;
+  paystackSubaccountActive: boolean;
+  bankName: string | null;
+  bankAccount: string | null;
+  bankAccountName: string | null;
+  invoiceTerms: string | null;
+}
+
+export interface UpdateProfileInput {
+  name?: string;
+  businessName?: string;
+  phone?: string;
+  logoUrl?: string;
+  paystackSubaccountCode?: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankAccountName?: string;
+  invoiceTerms?: string;
+}
