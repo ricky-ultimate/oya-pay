@@ -9,19 +9,20 @@ datasource db {
 }
 
 model User {
-    id                       String         @id @default(cuid())
-    email                    String         @unique
+    id                       String            @id @default(cuid())
+    email                    String            @unique
     password                 String
     name                     String
     businessName             String?
     phone                    String
     logoUrl                  String?
     paystackSubaccountCode   String?
-    paystackSubaccountActive Boolean        @default(false)
-    createdAt                DateTime       @default(now())
-    updatedAt                DateTime       @updatedAt
+    paystackSubaccountActive Boolean           @default(false)
+    createdAt                DateTime          @default(now())
+    updatedAt                DateTime          @updatedAt
     clients                  Client[]
     invoices                 Invoice[]
+    invoiceTemplates         InvoiceTemplate[]
     refreshTokens            RefreshToken[]
 }
 
@@ -99,6 +100,20 @@ model InvoiceItem {
     unitPrice   Decimal @db.Decimal(12, 2)
     total       Decimal @db.Decimal(12, 2)
     invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model InvoiceTemplate {
+    id        String   @id @default(cuid())
+    userId    String
+    name      String
+    title     String
+    items     Json
+    tax       Decimal  @default(0) @db.Decimal(12, 2)
+    notes     String?
+    currency  String   @default("NGN")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
